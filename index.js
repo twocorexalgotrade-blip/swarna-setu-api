@@ -46,6 +46,7 @@ app.get('/', (req, res) => {
 // Route to get featured products for the user app home screen
 app.get('/api/products/featured', (req, res) => {
     console.log('GET /api/products/featured - Request received');
+    // Simulate a slight network delay
     setTimeout(() => {
         res.status(200).json(featuredProducts);
     }, 500);
@@ -53,12 +54,14 @@ app.get('/api/products/featured', (req, res) => {
 
 // VENDOR APP ROUTES
 // Route to get all products for a specific vendor
+// THIS IS THE CORRECTED ROUTE
 app.get('/api/vendor/products', (req, res) => {
     console.log('GET /api/vendor/products - Request received');
     setTimeout(() => {
         res.status(200).json(vendorProducts);
     }, 500);
 });
+
 
 // Start the server
 app.listen(PORT, () => {
