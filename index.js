@@ -12,9 +12,11 @@ const PORT = process.env.PORT || 3000;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false // Required for Render's PostgreSQL connections
   }
 });
+
+// --- TABLE CREATION ON STARTUP ---
 
 // Function to create VENDORS table
 const createVendorsTable = async () => {
@@ -53,49 +55,53 @@ const createUsersTable = async () => {
   }
 };
 
+// NEW: Function to create PRODUCTS table
+const createProductsTable = async () => {
+  const queryText = `
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      description TEXT,
+      price NUMERIC(10, 2) NOT NULL,
+      weight_grams NUMERIC(10, 2),
+      category VARCHAR(100),
+      purity VARCHAR(50),
+      image_url VARCHAR(255),
+      in_stock BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      -- In a real multi-vendor app, you would add a vendor_id column:
+      -- vendor_id INTEGER REFERENCES vendors(id)
+    );
+  `;
+  try {
+    await pool.query(queryText);
+    console.log('"products" table is ready.');
+  } catch (err) {
+    console.error('Error creating products table', err.stack);
+  }
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE ---
+// --- MOCK DATABASE (FOR USER APP'S FEATURED PRODUCTS ONLY) ---
 const featuredProducts = [
     {
-        "id": "p1",
-        "name": "Solitaire Sparkle Ring",
-        "vendorName": "Aura Jewels",
-        "price": 95500.0,
-        "imageUrl": "https://placehold.co/300x300/png?text=Ring",
-        "description": "A stunning ring crafted with a 1-carat brilliant-cut diamond, set in a classic 18K white gold band. A timeless piece for any special occasion.",
-        "purity": "18K Gold",
-        "weightInGrams": 4.5
+        "id": "p1", "name": "Solitaire Sparkle Ring", "vendorName": "Aura Jewels",
+        "price": 95500.0, "imageUrl": "https://placehold.co/300x300/png?text=Ring",
+        "description": "A stunning ring.", "purity": "18K Gold", "weightInGrams": 4.5
     },
     {
-        "id": "p2",
-        "name": "Heritage Gold Necklace",
-        "vendorName": "BlueStone",
-        "price": 240000.0,
-        "imageUrl": "https://placehold.co/300x300/png?text=Necklace",
-        "description": "An exquisite heritage necklace inspired by temple architecture, handcrafted in 22K pure gold. Perfect for weddings and grand celebrations.",
-        "purity": "22K Gold",
-        "weightInGrams": 20.0
+        "id": "p2", "name": "Heritage Gold Necklace", "vendorName": "BlueStone",
+        "price": 240000.0, "imageUrl": "https://placehold.co/300x300/png?text=Necklace",
+        "description": "A heritage necklace.", "purity": "22K Gold", "weightInGrams": 20.0
     },
     {
-        "id": "p3",
-        "name": "Classic Pearl Studs",
-        "vendorName": "CaratLane",
-        "price": 45000.0,
-        "imageUrl": "https://placehold.co/300x300/png?text=Earrings",
-        "description": "Elegant and versatile, these classic studs feature lustrous freshwater pearls set in 14K yellow gold. A must-have for every jewellery collection.",
-        "purity": "14K Gold",
-        "weightInGrams": 3.0
+        "id": "p3", "name": "Classic Pearl Studs", "vendorName": "CaratLane",
+        "price": 45000.0, "imageUrl": "https://placehold.co/300x300/png?text=Earrings",
+        "description": "Elegant pearl studs.", "purity": "14K Gold", "weightInGrams": 3.0
     }
-];
-
-let vendorProducts = [
-    {"id": "v1", "name": "Classic 22K Gold Bangle", "price": 125000.0, "imageUrl": "https://placehold.co/100x100/png?text=Bangle", "inStock": true},
-    {"id": "v2", "name": "Antique Temple Necklace Set", "price": 340000.0, "imageUrl": "https://placehold.co/100x100/png?text=Necklace", "inStock": true},
-    {"id": "v3", "name": "Solitaire Diamond Studs (1 Carat)", "price": 210000.0, "imageUrl": "https://placehold.co/100x100/png?text=Studs", "inStock": false},
-    {"id": "v4", "name": "Modern Platinum Bracelet", "price": 85000.0, "imageUrl": "https://placehold.co/100x100/png?text=Bracelet", "inStock": true}
 ];
 
 // --- API ROUTES ---
@@ -115,7 +121,6 @@ app.post('/api/auth/vendor/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
-
 app.post('/api/auth/vendor/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -152,7 +157,6 @@ app.post('/api/auth/user/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
-
 app.post('/api/auth/user/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -175,34 +179,58 @@ app.post('/api/auth/user/login', async (req, res) => {
 });
 
 // --- PRODUCT ROUTES ---
+
+// GET featured products for User App
 app.get('/api/products/featured', (req, res) => {
     console.log('GET /api/products/featured - Request received');
     res.status(200).json(featuredProducts);
 });
 
-app.get('/api/vendor/products', (req, res) => {
-    console.log('GET /api/vendor/products - Request received');
-    res.status(200).json(vendorProducts);
+// GET all products for a Vendor (READ from database)
+app.get('/api/vendor/products', async (req, res) => {
+    console.log('GET /api/vendor/products - Reading from database...');
+    try {
+        // We now select the specific columns our Flutter model expects
+        const allProducts = await pool.query(
+            "SELECT id::text, name, price::float, image_url AS \"imageUrl\", in_stock AS \"inStock\" FROM products ORDER BY created_at DESC"
+        );
+        res.status(200).json(allProducts.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching products." });
+    }
 });
 
-app.post('/api/vendor/products', (req, res) => {
-    const newProduct = req.body;
-    console.log('POST /api/vendor/products - Request received with data:', newProduct);
-    const productToAdd = { id: `v${Math.floor(Math.random() * 1000)}`, name: newProduct.name || 'Untitled', price: parseFloat(newProduct.price) || 0, imageUrl: 'https://placehold.co/100x100/png?text=New', inStock: true };
-    vendorProducts.push(productToAdd);
-    res.status(201).json({ message: 'Product created successfully', product: productToAdd });
+// POST a new product for a Vendor (WRITE to database)
+app.post('/api/vendor/products', async (req, res) => {
+    const { name, description, price, weight, category, purity } = req.body;
+    
+    console.log('POST /api/vendor/products - Writing to database with data:', req.body);
+
+    if (!name || !price) {
+        return res.status(400).json({ message: "Product name and price are required." });
+    }
+
+    try {
+        const newProduct = await pool.query(
+            "INSERT INTO products (name, description, price, weight_grams, category, purity, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+            [name, description, price, weight, category, purity, 'https://placehold.co/100x100/png?text=New']
+        );
+
+        res.status(201).json({ message: 'Product created successfully', product: newProduct.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error creating product." });
+    }
 });
 
-// CANARY/TEST ROUTE
-app.get('/api/test', (req, res) => {
-    console.log('GET /api/test - Canary route was hit!');
-    res.status(200).send('Test route is working!');
-});
 
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  // When the server starts, ensure ALL tables exist
   createVendorsTable();
   createUsersTable();
+  createProductsTable();
   console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
