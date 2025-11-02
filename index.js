@@ -29,7 +29,7 @@ const featuredProducts = [
     }
 ];
 
-const vendorProducts = [
+let vendorProducts = [
     {"id": "v1", "name": "Classic 22K Gold Bangle", "price": 125000.0, "imageUrl": "https://placehold.co/100x100/png?text=Bangle", "inStock": true},
     {"id": "v2", "name": "Antique Temple Necklace Set", "price": 340000.0, "imageUrl": "https://placehold.co/100x100/png?text=Necklace", "inStock": true},
     {"id": "v3", "name": "Solitaire Diamond Studs (1 Carat)", "price": 210000.0, "imageUrl": "https://placehold.co/100x100/png?text=Studs", "inStock": false},
@@ -53,13 +53,39 @@ app.get('/api/products/featured', (req, res) => {
 });
 
 // VENDOR APP ROUTES
-// Route to get all products for a specific vendor
+// GET all products for a specific vendor
 app.get('/api/vendor/products', (req, res) => {
     console.log('GET /api/vendor/products - Request received');
     setTimeout(() => {
         res.status(200).json(vendorProducts);
     }, 500);
 });
+
+// POST a new product for a vendor
+app.post('/api/vendor/products', (req, res) => {
+    // The 'req.body' contains the JSON data sent from the Flutter app
+    const newProduct = req.body;
+    
+    console.log('POST /api/vendor/products - Request received with data:', newProduct);
+
+    // In a real app, you would validate the data and save it to a database.
+    // For now, we'll just add it to our array in memory.
+    // We'll generate a random ID for the new product.
+    const productToAdd = {
+        id: `v${Math.floor(Math.random() * 1000)}`,
+        name: newProduct.name || 'Untitled Product',
+        price: parseFloat(newProduct.price) || 0.0,
+        imageUrl: newProduct.imageUrl || 'https://placehold.co/100x100/png?text=New',
+        inStock: true // New products are in stock by default
+    };
+
+    vendorProducts.push(productToAdd);
+
+    // Send a success response back to the Flutter app
+    // A 201 status code means "Created"
+    res.status(201).json({ message: 'Product created successfully', product: productToAdd });
+});
+
 
 // CANARY/TEST ROUTE FOR DEBUGGING DEPLOYMENTS
 app.get('/api/test', (req, res) => {
