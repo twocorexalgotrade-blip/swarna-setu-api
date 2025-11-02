@@ -62,9 +62,14 @@ app.get('/api/vendor/products', (req, res) => {
     }, 500);
 });
 
+// NEW CANARY/TEST ROUTE FOR DEBUGGING DEPLOYMENTS
+app.get('/api/test', (req, res) => {
+    console.log('GET /api/test - Canary route was hit!');
+    res.status(200).send('Test route is working!');
+});
+
 
 // Start the server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-//rtete
