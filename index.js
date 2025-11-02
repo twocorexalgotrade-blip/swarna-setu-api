@@ -1,102 +1,138 @@
 const express = require('express');
 const cors = require('cors');
-const listEndpoints = require('express-list-endpoints'); // Dependency to list all routes
+const { Pool } = require('pg'); // PostgreSQL client
+const bcrypt = require('bcryptjs'); // Password hashing
+const jwt = require('jsonwebtoken'); // JSON Web Tokens
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- DATABASE CONNECTION ---
+// The connection string is read from the DATABASE_URL environment variable we set on Render.
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false // Required for Render's PostgreSQL connections
+  }
+});
+
+// Function to create the users table if it doesn't exist
+const createUsersTable = async () => {
+  const queryText = `
+    CREATE TABLE IF NOT EXISTS vendors (
+      id SERIAL PRIMARY KEY,
+      email VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await pool.query(queryText);
+    console.log('"vendors" table is ready.');
+  } catch (err) {
+    console.error('Error creating vendors table', err.stack);
+  }
+};
+
 // Middleware
-app.use(cors()); // Allow requests from any origin
-app.use(express.json()); // Allow the server to parse JSON in request bodies
+app.use(cors());
+app.use(express.json());
 
-// --- MOCK DATABASE ---
-// In a real app, this data would come from a database like PostgreSQL or MongoDB.
-const featuredProducts = [
-    {
-        "id": "p1", "name": "Solitaire Sparkle Ring", "vendorName": "Aura Jewels",
-        "price": 95500.0, "imageUrl": "https://placehold.co/300x300/png?text=Ring",
-        "description": "A stunning ring.", "purity": "18K Gold", "weightInGrams": 4.5
-    },
-    {
-        "id": "p2", "name": "Heritage Gold Necklace", "vendorName": "BlueStone",
-        "price": 240000.0, "imageUrl": "https://placehold.co/300x300/png?text=Necklace",
-        "description": "A heritage necklace.", "purity": "22K Gold", "weightInGrams": 20.0
-    },
-    {
-        "id": "p3", "name": "Classic Pearl Studs", "vendorName": "CaratLane",
-        "price": 45000.0, "imageUrl": "https://placehold.co/300x300/png?text=Earrings",
-        "description": "Elegant pearl studs.", "purity": "14K Gold", "weightInGrams": 3.0
-    }
-];
 
+// --- (Keep your Mock Database for products for now) ---
 let vendorProducts = [
     {"id": "v1", "name": "Classic 22K Gold Bangle", "price": 125000.0, "imageUrl": "https://placehold.co/100x100/png?text=Bangle", "inStock": true},
-    {"id": "v2", "name": "Antique Temple Necklace Set", "price": 340000.0, "imageUrl": "https://placehold.co/100x100/png?text=Necklace", "inStock": true},
-    {"id": "v3", "name": "Solitaire Diamond Studs (1 Carat)", "price": 210000.0, "imageUrl": "https://placehold.co/100x100/png?text=Studs", "inStock": false},
-    {"id": "v4", "name": "Modern Platinum Bracelet", "price": 85000.0, "imageUrl": "https://placehold.co/100x100/png?text=Bracelet", "inStock": true}
+    // ... other mock products
 ];
+
 
 // --- API ROUTES ---
 
-// Health check route
-app.get('/', (req, res) => {
-    res.send('Swarna Setu API is running!');
+app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
+
+// --- AUTH ROUTES ---
+
+// POST /api/auth/register (For Vendor App)
+app.post('/api/auth/register', async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+
+  try {
+    // Hash the password before saving it
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newUser = await pool.query(
+      "INSERT INTO vendors (email, password) VALUES ($1, $2) RETURNING id, email",
+      [email, hashedPassword]
+    );
+
+    res.status(201).json({ message: 'Vendor registered successfully', user: newUser.rows[0] });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error during registration' });
+  }
 });
 
-// USER APP ROUTES
-// Route to get featured products for the user app home screen
-app.get('/api/products/featured', (req, res) => {
-    console.log('GET /api/products/featured - Request received');
-    setTimeout(() => {
-        res.status(200).json(featuredProducts);
-    }, 500);
-});
+// POST /api/auth/login (For Vendor App)
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body;
 
-// VENDOR APP ROUTES
-// GET all products for a specific vendor
-app.get('/api/vendor/products', (req, res) => {
-    console.log('GET /api/vendor/products - Request received');
-    setTimeout(() => {
-        res.status(200).json(vendorProducts);
-    }, 500);
-});
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
 
-// POST a new product for a vendor
-app.post('/api/vendor/products', (req, res) => {
-    // The 'req.body' contains the JSON data sent from the Flutter app
-    const newProduct = req.body;
+  try {
+    const userQuery = await pool.query("SELECT * FROM vendors WHERE email = $1", [email]);
+
+    if (userQuery.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials.' });
+    }
+
+    const user = userQuery.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials.' });
+    }
+
+    // User is authenticated, create a JWT token
+    const payload = { user: { id: user.id } };
     
-    console.log('POST /api/vendor/products - Request received with data:', newProduct);
+    // In production, use a strong, secret key stored in environment variables
+    const secretKey = process.env.JWT_SECRET || 'my-super-secret-key-for-now';
 
-    // In a real app, you would validate the data and save it to a database.
-    // For now, we'll just add it to our array in memory.
-    // We'll generate a random ID for the new product.
-    const productToAdd = {
-        id: `v${Math.floor(Math.random() * 1000)}`,
-        name: newProduct.name || 'Untitled Product',
-        price: parseFloat(newProduct.price) || 0.0,
-        imageUrl: newProduct.imageUrl || 'https://placehold.co/100x100/png?text=New',
-        inStock: true // New products are in stock by default
-    };
+    jwt.sign(payload, secretKey, { expiresIn: '1h' }, (err, token) => {
+      if (err) throw err;
+      res.json({ token });
+    });
 
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+
+// --- VENDOR PRODUCT ROUTES --- (Keep these as they are)
+app.get('/api/vendor/products', (req, res) => {
+    res.status(200).json(vendorProducts);
+});
+app.post('/api/vendor/products', (req, res) => {
+    const newProduct = req.body;
+    const productToAdd = { id: `v${Math.random()}`, ...newProduct, inStock: true };
     vendorProducts.push(productToAdd);
-
-    // Send a success response back to the Flutter app
-    // A 201 status code means "Created"
-    res.status(201).json({ message: 'Product created successfully', product: productToAdd });
+    res.status(201).json({ message: 'Product created', product: productToAdd });
 });
 
 
-// CANARY/TEST ROUTE FOR DEBUGGING DEPLOYMENTS
-app.get('/api/test', (req, res) => {
-    console.log('GET /api/test - Canary route was hit!');
-    res.status(200).send('Test route is working!');
-});
-
-
-// Start the server and print all registered routes
+// Start the server
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    // This will print a JSON array of all routes to the Render logs.
-    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
+  console.log(`Server is running on port ${PORT}`);
+  // When the server starts, ensure the user table exists
+  createUsersTable();
 });
