@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const listEndpoints = require('express-list-endpoints'); // Dependency to list all routes
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +47,6 @@ app.get('/', (req, res) => {
 // Route to get featured products for the user app home screen
 app.get('/api/products/featured', (req, res) => {
     console.log('GET /api/products/featured - Request received');
-    // Simulate a slight network delay
     setTimeout(() => {
         res.status(200).json(featuredProducts);
     }, 500);
@@ -54,7 +54,6 @@ app.get('/api/products/featured', (req, res) => {
 
 // VENDOR APP ROUTES
 // Route to get all products for a specific vendor
-// THIS IS THE CORRECTED ROUTE
 app.get('/api/vendor/products', (req, res) => {
     console.log('GET /api/vendor/products - Request received');
     setTimeout(() => {
@@ -62,14 +61,16 @@ app.get('/api/vendor/products', (req, res) => {
     }, 500);
 });
 
-// NEW CANARY/TEST ROUTE FOR DEBUGGING DEPLOYMENTS
+// CANARY/TEST ROUTE FOR DEBUGGING DEPLOYMENTS
 app.get('/api/test', (req, res) => {
     console.log('GET /api/test - Canary route was hit!');
     res.status(200).send('Test route is working!');
 });
 
 
-// Start the server
+// Start the server and print all registered routes
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    // This will print a JSON array of all routes to the Render logs.
+    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
