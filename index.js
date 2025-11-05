@@ -12,11 +12,11 @@ const PORT = process.env.PORT || 3000;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false // Required for Render's PostgreSQL connections
+    rejectUnauthorized: false
   }
 });
 
-// --- TABLE CREATION ON STARTUP ---
+// --- TABLE CREATION FUNCTIONS ---
 
 // Function to create VENDORS table
 const createVendorsTable = async () => {
@@ -55,7 +55,7 @@ const createUsersTable = async () => {
   }
 };
 
-// NEW: Function to create PRODUCTS table
+// Function to create PRODUCTS table
 const createProductsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS products (
@@ -69,8 +69,6 @@ const createProductsTable = async () => {
       image_url VARCHAR(255),
       in_stock BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      -- In a real multi-vendor app, you would add a vendor_id column:
-      -- vendor_id INTEGER REFERENCES vendors(id)
     );
   `;
   try {
@@ -85,23 +83,27 @@ const createProductsTable = async () => {
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE (FOR USER APP'S FEATURED PRODUCTS ONLY) ---
-const featuredProducts = [
-    {
-        "id": "p1", "name": "Solitaire Sparkle Ring", "vendorName": "Aura Jewels",
-        "price": 95500.0, "imageUrl": "https://placehold.co/300x300/png?text=Ring",
-        "description": "A stunning ring.", "purity": "18K Gold", "weightInGrams": 4.5
-    },
-    {
-        "id": "p2", "name": "Heritage Gold Necklace", "vendorName": "BlueStone",
-        "price": 240000.0, "imageUrl": "https://placehold.co/300x300/png?text=Necklace",
-        "description": "A heritage necklace.", "purity": "22K Gold", "weightInGrams": 20.0
-    },
-    {
-        "id": "p3", "name": "Classic Pearl Studs", "vendorName": "CaratLane",
-        "price": 45000.0, "imageUrl": "https://placehold.co/300x300/png?text=Earrings",
-        "description": "Elegant pearl studs.", "purity": "14K Gold", "weightInGrams": 3.0
-    }
+// --- MOCK DATABASE (For Home Page and Initial Data) ---
+const liveGoldRate = {
+    "metal": "Gold",
+    "purity": "24K",
+    "rate_per_gram": 6540.00,
+    "timestamp": new Date().toISOString(),
+    "source": "IBJA"
+};
+
+const trendingProducts = [
+    { "id": "p1", "vendorName": "Aura Jewels", "name": "Solitaire Sparkle Ring", "price": 95500.0, "imageUrl": "https://placehold.co/300x300/png?text=Ring", "metal": "Diamond", "description": "Desc for Ring", "purity": "18K Gold", "weightInGrams": 4.5 },
+    { "id": "p2", "vendorName": "BlueStone", "name": "Heritage Gold Necklace", "price": 240000.0, "imageUrl": "https://placehold.co/300x300/png?text=Necklace", "metal": "Gold", "description": "Desc for Necklace", "purity": "22K Gold", "weightInGrams": 20.0 },
+    { "id": "p3", "vendorName": "CaratLane", "name": "Classic Pearl Studs", "price": 45000.0, "imageUrl": "https://placehold.co/300x300/png?text=Earrings", "metal": "Gold", "description": "Desc for Earrings", "purity": "14K Gold", "weightInGrams": 3.0 },
+    { "id": "p4", "vendorName": "Giva", "name": "Sterling Silver Chain", "price": 5000.0, "imageUrl": "https://placehold.co/300x300/png?text=Chain", "metal": "Silver", "description": "Desc for Chain", "purity": "925 Silver", "weightInGrams": 15.0 },
+    { "id": "p5", "vendorName": "Tanishq", "name": "Ornate Platinum Band", "price": 65000.0, "imageUrl": "https://placehold.co/300x300/png?text=Band", "metal": "Platinum", "description": "Desc for Band", "purity": "Pt 950", "weightInGrams": 8.0 }
+];
+
+const topJewellers = [
+    { "id": "store1", "name": "Shri Hari Jewels", "distance": "2.1 km", "rating": 4.8, "isVerified": true, "tags": ["Sponsored", "Gold Specialist"] },
+    { "id": "store2", "name": "Tanishq - Vashi", "distance": "3.5 km", "rating": 4.9, "isVerified": true, "tags": ["Top Rated"] },
+    { "id": "store3", "name": "Giva Silver", "distance": "4.0 km", "rating": 4.5, "isVerified": false, "tags": ["Silver Only"] }
 ];
 
 // --- API ROUTES ---
@@ -121,6 +123,7 @@ app.post('/api/auth/vendor/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
+
 app.post('/api/auth/vendor/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -157,6 +160,7 @@ app.post('/api/auth/user/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
+
 app.post('/api/auth/user/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -178,57 +182,65 @@ app.post('/api/auth/user/login', async (req, res) => {
     }
 });
 
-// --- PRODUCT ROUTES ---
-
-// GET featured products for User App
-app.get('/api/products/featured', (req, res) => {
-    console.log('GET /api/products/featured - Request received');
-    res.status(200).json(featuredProducts);
-});
-
-// GET all products for a Vendor (READ from database)
+// --- VENDOR PRODUCT ROUTES ---
 app.get('/api/vendor/products', async (req, res) => {
     console.log('GET /api/vendor/products - Reading from database...');
     try {
-        // We now select the specific columns our Flutter model expects
-        const allProducts = await pool.query(
-            "SELECT id::text, name, price::float, image_url AS \"imageUrl\", in_stock AS \"inStock\" FROM products ORDER BY created_at DESC"
-        );
+        const allProducts = await pool.query("SELECT id::text, name, price::float, image_url AS \"imageUrl\", in_stock AS \"inStock\" FROM products ORDER BY created_at DESC");
         res.status(200).json(allProducts.rows);
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: "Server error fetching products." });
     }
 });
-
-// POST a new product for a Vendor (WRITE to database)
 app.post('/api/vendor/products', async (req, res) => {
     const { name, description, price, weight, category, purity } = req.body;
-    
     console.log('POST /api/vendor/products - Writing to database with data:', req.body);
-
-    if (!name || !price) {
-        return res.status(400).json({ message: "Product name and price are required." });
-    }
-
+    if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
     try {
-        const newProduct = await pool.query(
-            "INSERT INTO products (name, description, price, weight_grams, category, purity, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-            [name, description, price, weight, category, purity, 'https://placehold.co/100x100/png?text=New']
-        );
-
+        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *", [name, description, price, weight, category, purity, 'https://placehold.co/100x100/png?text=New']);
         res.status(201).json({ message: 'Product created successfully', product: newProduct.rows[0] });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: "Server error creating product." });
     }
 });
+app.put('/api/vendor/products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, price, weight, category, purity } = req.body;
+        console.log(`PUT /api/vendor/products/${id} - Updating database with data:`, req.body);
+        if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
+        const updatedProduct = await pool.query("UPDATE products SET name = $1, description = $2, price = $3, weight_grams = $4, category = $5, purity = $6 WHERE id = $7 RETURNING *", [name, description, price, weight, category, purity, id]);
+        if (updatedProduct.rows.length === 0) return res.status(404).json({ message: "Product not found." });
+        res.status(200).json({ message: 'Product updated successfully', product: updatedProduct.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error updating product." });
+    }
+});
 
+
+// --- USER APP HOME PAGE ROUTES ---
+app.get('/api/gold-rate', (req, res) => {
+    console.log('GET /api/gold-rate - Request received');
+    res.status(200).json(liveGoldRate);
+});
+app.get('/api/trending', (req, res) => {
+    const { metal } = req.query;
+    console.log(`GET /api/trending - Request received for metal: ${metal}`);
+    if (!metal || metal.toLowerCase() === 'all') return res.status(200).json(trendingProducts);
+    const filteredProducts = trendingProducts.filter(p => p.metal.toLowerCase() === metal.toLowerCase());
+    res.status(200).json(filteredProducts);
+});
+app.get('/api/top-jewellers', (req, res) => {
+    console.log('GET /api/top-jewellers - Request received');
+    res.status(200).json(topJewellers);
+});
 
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
-  // When the server starts, ensure ALL tables exist
   createVendorsTable();
   createUsersTable();
   createProductsTable();
