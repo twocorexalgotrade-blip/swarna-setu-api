@@ -79,17 +79,35 @@ const createProductsTable = async () => {
   }
 };
 
+// Function to create BAG_ITEMS table
+const createBagItemsTable = async () => {
+  const queryText = `
+    CREATE TABLE IF NOT EXISTS bag_items (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      product_id TEXT NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      product_image_url VARCHAR(255),
+      vendor_name VARCHAR(255),
+      price NUMERIC(10, 2) NOT NULL,
+      added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await pool.query(queryText);
+    console.log('"bag_items" table is ready.');
+  } catch (err) {
+    console.error('Error creating bag_items table', err.stack);
+  }
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // --- MOCK DATABASE (For Home Page and Initial Data) ---
 const liveGoldRate = {
-    "metal": "Gold",
-    "purity": "24K",
-    "rate_per_gram": 6540.00,
-    "timestamp": new Date().toISOString(),
-    "source": "IBJA"
+    "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA"
 };
 
 const trendingProducts = [
@@ -105,6 +123,7 @@ const topJewellers = [
     { "id": "store2", "name": "Tanishq - Vashi", "distance": "3.5 km", "rating": 4.9, "isVerified": true, "tags": ["Top Rated"] },
     { "id": "store3", "name": "Giva Silver", "distance": "4.0 km", "rating": 4.5, "isVerified": false, "tags": ["Silver Only"] }
 ];
+
 
 // --- API ROUTES ---
 app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
@@ -220,7 +239,6 @@ app.put('/api/vendor/products/:id', async (req, res) => {
     }
 });
 
-
 // --- USER APP HOME PAGE ROUTES ---
 app.get('/api/gold-rate', (req, res) => {
     console.log('GET /api/gold-rate - Request received');
@@ -238,11 +256,52 @@ app.get('/api/top-jewellers', (req, res) => {
     res.status(200).json(topJewellers);
 });
 
+// --- BAG / CART ROUTES ---
+app.get('/api/bag/:userId', async (req, res) => {
+    const { userId } = req.params;
+    console.log(`GET /api/bag for user: ${userId}`);
+    try {
+        const bagItems = await pool.query("SELECT * FROM bag_items WHERE user_id = $1 ORDER BY added_at DESC", [userId]);
+        res.status(200).json(bagItems.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching bag items." });
+    }
+});
+app.post('/api/bag', async (req, res) => {
+    const { userId, productId, productName, productImageUrl, vendorName, price } = req.body;
+    console.log('POST /api/bag - Adding product to bag:', req.body);
+    if (!userId || !productId || !productName || !price) return res.status(400).json({ message: "User, product, name, and price are required." });
+    try {
+        const newItem = await pool.query(
+            "INSERT INTO bag_items (user_id, product_id, product_name, product_image_url, vendor_name, price) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+            [userId, productId, productName, productImageUrl, vendorName, price]
+        );
+        res.status(201).json(newItem.rows[0]);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error adding item to bag." });
+    }
+});
+app.delete('/api/bag/:itemId', async (req, res) => {
+    const { itemId } = req.params;
+    console.log(`DELETE /api/bag/${itemId}`);
+    try {
+        const deleteOp = await pool.query("DELETE FROM bag_items WHERE id = $1 RETURNING *", [itemId]);
+        if (deleteOp.rowCount === 0) return res.status(404).json({ message: "Item not found in bag." });
+        res.status(200).json({ message: "Item removed successfully." });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error removing item from bag." });
+    }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   createVendorsTable();
   createUsersTable();
   createProductsTable();
+  createBagItemsTable();
   console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
