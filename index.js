@@ -18,7 +18,6 @@ const pool = new Pool({
 
 // --- TABLE CREATION FUNCTIONS ---
 
-// Function to create VENDORS table
 const createVendorsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS vendors (
@@ -36,7 +35,6 @@ const createVendorsTable = async () => {
   }
 };
 
-// Function to create USERS table
 const createUsersTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS users (
@@ -55,7 +53,6 @@ const createUsersTable = async () => {
   }
 };
 
-// Function to create PRODUCTS table
 const createProductsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS products (
@@ -79,12 +76,11 @@ const createProductsTable = async () => {
   }
 };
 
-// Function to create BAG_ITEMS table
 const createBagItemsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS bag_items (
       id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id),
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       product_id TEXT NOT NULL,
       product_name VARCHAR(255) NOT NULL,
       product_image_url VARCHAR(255),
@@ -105,7 +101,7 @@ const createBagItemsTable = async () => {
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE (For Home Page and Initial Data) ---
+// --- MOCK DATABASE (For Home Page Features) ---
 const liveGoldRate = {
     "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA"
 };
@@ -124,7 +120,6 @@ const topJewellers = [
     { "id": "store3", "name": "Giva Silver", "distance": "4.0 km", "rating": 4.5, "isVerified": false, "tags": ["Silver Only"] }
 ];
 
-
 // --- API ROUTES ---
 app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
 
@@ -142,7 +137,6 @@ app.post('/api/auth/vendor/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
-
 app.post('/api/auth/vendor/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -179,7 +173,6 @@ app.post('/api/auth/user/register', async (req, res) => {
         res.status(500).json({ message: 'Server error during registration' });
     }
 });
-
 app.post('/api/auth/user/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -240,21 +233,15 @@ app.put('/api/vendor/products/:id', async (req, res) => {
 });
 
 // --- USER APP HOME PAGE ROUTES ---
-app.get('/api/gold-rate', (req, res) => {
-    console.log('GET /api/gold-rate - Request received');
-    res.status(200).json(liveGoldRate);
-});
+app.get('/api/gold-rate', (req, res) => { console.log('GET /api/gold-rate - Request received'); res.status(200).json(liveGoldRate); });
 app.get('/api/trending', (req, res) => {
     const { metal } = req.query;
-    console.log(`GET /api/trending - Request received for metal: ${metal}`);
+    console.log(`GET /api/trending - Request for metal: ${metal}`);
     if (!metal || metal.toLowerCase() === 'all') return res.status(200).json(trendingProducts);
     const filteredProducts = trendingProducts.filter(p => p.metal.toLowerCase() === metal.toLowerCase());
     res.status(200).json(filteredProducts);
 });
-app.get('/api/top-jewellers', (req, res) => {
-    console.log('GET /api/top-jewellers - Request received');
-    res.status(200).json(topJewellers);
-});
+app.get('/api/top-jewellers', (req, res) => { console.log('GET /api/top-jewellers - Request received'); res.status(200).json(topJewellers); });
 
 // --- BAG / CART ROUTES ---
 app.get('/api/bag/:userId', async (req, res) => {
