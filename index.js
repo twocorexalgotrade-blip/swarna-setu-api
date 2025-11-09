@@ -17,7 +17,6 @@ const pool = new Pool({
 });
 
 // --- TABLE CREATION FUNCTIONS ---
-
 const createVendorsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS vendors (
@@ -34,7 +33,6 @@ const createVendorsTable = async () => {
     console.error('Error creating vendors table', err.stack);
   }
 };
-
 const createUsersTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS users (
@@ -52,7 +50,6 @@ const createUsersTable = async () => {
     console.error('Error creating users table', err.stack);
   }
 };
-
 const createProductsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS products (
@@ -75,7 +72,6 @@ const createProductsTable = async () => {
     console.error('Error creating products table', err.stack);
   }
 };
-
 const createBagItemsTable = async () => {
   const queryText = `
     CREATE TABLE IF NOT EXISTS bag_items (
@@ -101,15 +97,46 @@ const createBagItemsTable = async () => {
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE (For Home Page Features) ---
-const liveGoldRate = {
-    "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA"
-};
+// --- MOCK DATABASE (WITH REAL IMAGES FOR USER APP DEMO) ---
+const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA" };
+
+const featuredProducts = [
+    { 
+        "id": "p1", "vendorName": "Tanishq", "name": "Playful Charm Diamond Ring", "price": 48500.0, 
+        "imageUrl": "https://i.imgur.com/8F2aP1L.jpeg", 
+        "description": "A dual band structure frames a heart motif encrusted with natural diamonds.", 
+        "purity": "18K Gold", "weightInGrams": 2.311 
+    },
+    { 
+        "id": "p2", "vendorName": "BlueStone", "name": "Regal Crown Motif Ring", "price": 27500.0, 
+        "imageUrl": "https://i.imgur.com/D4sT917.jpeg", 
+        "description": "Regal charm shines in this 22 Karat yellow Gold Ring, with a curved crown motif.", 
+        "purity": "22K Gold", "weightInGrams": 2.607
+    },
+    { 
+        "id": "p3", "vendorName": "Senco Gold", "name": "Golden Waves Jhumka", "price": 51000.0, 
+        "imageUrl": "https://i.imgur.com/o8130Ue.jpeg", 
+        "description": "Golden waves unfold in grace with these 22 Karat Yellow Gold Jhumka Earrings.", 
+        "purity": "22K Gold", "weightInGrams": 4.796
+    },
+    { 
+        "id": "p4", "vendorName": "CaratLane", "name": "Floral Drop Earrings", "price": 42000.0, 
+        "imageUrl": "https://i.imgur.com/k6uLiQ9.jpeg", 
+        "description": "Embrace the ethereal beauty of fresh flowers with these Floral Drop Earrings.", 
+        "purity": "22K Gold", "weightInGrams": 3.914
+    },
+    { 
+        "id": "p5", "vendorName": "Malabar Gold", "name": "Distinctive Rope Twist Chain", "price": 125000.0, 
+        "imageUrl": "https://i.imgur.com/xO7x2i3.jpeg", 
+        "description": "Distinctive rope twists bring character to this 18 Karat yellow gold men's Chain.", 
+        "purity": "18K Gold", "weightInGrams": 11.722
+    }
+];
 
 const trendingProducts = [
-    { "id": "p1", "vendorName": "Aura Jewels", "name": "Solitaire Sparkle Ring", "price": 95500.0, "imageUrl": "https://placehold.co/300x300/png?text=Ring", "metal": "Diamond", "description": "Desc for Ring", "purity": "18K Gold", "weightInGrams": 4.5 },
-    { "id": "p2", "vendorName": "BlueStone", "name": "Heritage Gold Necklace", "price": 240000.0, "imageUrl": "https://placehold.co/300x300/png?text=Necklace", "metal": "Gold", "description": "Desc for Necklace", "purity": "22K Gold", "weightInGrams": 20.0 },
-    { "id": "p3", "vendorName": "CaratLane", "name": "Classic Pearl Studs", "price": 45000.0, "imageUrl": "https://placehold.co/300x300/png?text=Earrings", "metal": "Gold", "description": "Desc for Earrings", "purity": "14K Gold", "weightInGrams": 3.0 },
+    { "id": "p1", "vendorName": "Aura Jewels", "name": "Solitaire Sparkle Ring", "price": 95500.0, "imageUrl": "https://i.imgur.com/8F2aP1L.jpeg", "metal": "Diamond", "description": "Desc for Ring", "purity": "18K Gold", "weightInGrams": 4.5 },
+    { "id": "p2", "vendorName": "BlueStone", "name": "Heritage Gold Necklace", "price": 240000.0, "imageUrl": "https://i.imgur.com/xO7x2i3.jpeg", "metal": "Gold", "description": "Desc for Necklace", "purity": "22K Gold", "weightInGrams": 20.0 },
+    { "id": "p3", "vendorName": "CaratLane", "name": "Classic Pearl Studs", "price": 45000.0, "imageUrl": "https://i.imgur.com/o8130Ue.jpeg", "metal": "Gold", "description": "Desc for Earrings", "purity": "14K Gold", "weightInGrams": 3.0 },
     { "id": "p4", "vendorName": "Giva", "name": "Sterling Silver Chain", "price": 5000.0, "imageUrl": "https://placehold.co/300x300/png?text=Chain", "metal": "Silver", "description": "Desc for Chain", "purity": "925 Silver", "weightInGrams": 15.0 },
     { "id": "p5", "vendorName": "Tanishq", "name": "Ornate Platinum Band", "price": 65000.0, "imageUrl": "https://placehold.co/300x300/png?text=Band", "metal": "Platinum", "description": "Desc for Band", "purity": "Pt 950", "weightInGrams": 8.0 }
 ];
@@ -208,9 +235,10 @@ app.get('/api/vendor/products', async (req, res) => {
 app.post('/api/vendor/products', async (req, res) => {
     const { name, description, price, weight, category, purity } = req.body;
     console.log('POST /api/vendor/products - Writing to database with data:', req.body);
+    const randomImage = featuredProducts[Math.floor(Math.random() * featuredProducts.length)].imageUrl;
     if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
     try {
-        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *", [name, description, price, weight, category, purity, 'https://placehold.co/100x100/png?text=New']);
+        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [name, description, price, weight, category, purity, randomImage, true]);
         res.status(201).json({ message: 'Product created successfully', product: newProduct.rows[0] });
     } catch (err) {
         console.error(err.message);
@@ -242,6 +270,10 @@ app.get('/api/trending', (req, res) => {
     res.status(200).json(filteredProducts);
 });
 app.get('/api/top-jewellers', (req, res) => { console.log('GET /api/top-jewellers - Request received'); res.status(200).json(topJewellers); });
+app.get('/api/products/featured', (req, res) => {
+    console.log('GET /api/products/featured - Request received');
+    res.status(200).json(featuredProducts);
+});
 
 // --- BAG / CART ROUTES ---
 app.get('/api/bag/:userId', async (req, res) => {
