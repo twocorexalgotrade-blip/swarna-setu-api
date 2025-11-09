@@ -104,31 +104,31 @@ const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.0
 const highQualityProducts = [
     { 
         "id": "p1", "vendorName": "Tanishq", "name": "Elegant Diamond Solitaire", "price": 115500.0, 
-        "imageUrl": "https://images.pexels.com/photos/1458869/pexels-photo-1458869.jpeg?auto=compress&cs=tinysrgb&w=800", 
+        "imageUrl": "https://images.pexels.com/photos/2735970/pexels-photo-2735970.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Diamond", "description": "A classic 1-carat solitaire diamond ring set in a timeless platinum band.", 
         "purity": "Platinum 950", "weightInGrams": 5.2 
     },
     { 
         "id": "p2", "vendorName": "BlueStone", "name": "Royal Antique Necklace", "price": 280000.0, 
-        "imageUrl": "https://images.pexels.com/photos/10983777/pexels-photo-10983777.jpeg?auto=compress&cs=tinysrgb&w=800", 
+        "imageUrl": "https://images.pexels.com/photos/128303/pexels-photo-128303.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Gold", "description": "An intricate heritage necklace handcrafted in 22K pure gold, inspired by temple architecture.", 
         "purity": "22K Gold", "weightInGrams": 25.0 
     },
     { 
         "id": "p3", "vendorName": "Senco Gold", "name": "Traditional Gold Jhumkas", "price": 62000.0, 
-        "imageUrl": "https://images.pexels.com/photos/14133418/pexels-photo-14133418.jpeg?auto=compress&cs=tinysrgb&w=800", 
+        "imageUrl": "https://images.pexels.com/photos/16623432/pexels-photo-16623432/free-photo-of-close-up-of-traditional-indian-jhumka-earrings.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Gold", "description": "Beautifully handcrafted 22K gold jhumka earrings with delicate filigree work.", 
         "purity": "22K Gold", "weightInGrams": 8.5 
     },
     { 
         "id": "p4", "vendorName": "Giva", "name": "Minimalist Silver Bracelet", "price": 7500.0, 
-        "imageUrl": "https://images.pexels.com/photos/965990/pexels-photo-965990.jpeg?auto=compress&cs=tinysrgb&w=800", 
+        "imageUrl": "https://images.pexels.com/photos/2876033/pexels-photo-2876033.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Silver", "description": "A sleek and modern sterling silver bracelet, perfect for everyday wear.", 
         "purity": "925 Silver", "weightInGrams": 12.0 
     },
     { 
         "id": "p5", "vendorName": "CaratLane", "name": "Geometric Platinum Band", "price": 71000.0, 
-        "imageUrl": "https://images.pexels.com/photos/265906/pexels-photo-265906.jpeg?auto=compress&cs=tinysrgb&w=800", 
+        "imageUrl": "https://images.pexels.com/photos/1395313/pexels-photo-1395313.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Platinum", "description": "A contemporary platinum band with a unique geometric design.", 
         "purity": "Pt 950", "weightInGrams": 9.0 
     }
