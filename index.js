@@ -97,38 +97,38 @@ const createBagItemsTable = async () => {
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE (UPDATED WITH PROFESSIONAL STOCK PHOTOS) ---
+// --- MOCK DATABASE (UPDATED WITH VERIFIED STOCK PHOTOS) ---
 
 const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA" };
 
 const highQualityProducts = [
     { 
         "id": "p1", "vendorName": "Tanishq", "name": "Elegant Diamond Solitaire", "price": 115500.0, 
-        "imageUrl": "https://images.unsplash.com/photo-1611652033959-9a25dc9e088e?w=800&q=80", 
+        "imageUrl": "https://images.pexels.com/photos/1458869/pexels-photo-1458869.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Diamond", "description": "A classic 1-carat solitaire diamond ring set in a timeless platinum band.", 
         "purity": "Platinum 950", "weightInGrams": 5.2 
     },
     { 
         "id": "p2", "vendorName": "BlueStone", "name": "Royal Antique Necklace", "price": 280000.0, 
-        "imageUrl": "https://images.unsplash.com/photo-1620656411484-9a842f36a596?w=800&q=80", 
+        "imageUrl": "https://images.pexels.com/photos/10983777/pexels-photo-10983777.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Gold", "description": "An intricate heritage necklace handcrafted in 22K pure gold, inspired by temple architecture.", 
         "purity": "22K Gold", "weightInGrams": 25.0 
     },
     { 
         "id": "p3", "vendorName": "Senco Gold", "name": "Traditional Gold Jhumkas", "price": 62000.0, 
-        "imageUrl": "https://images.unsplash.com/photo-1617038220375-34ace908581f?w=800&q=80", 
+        "imageUrl": "https://images.pexels.com/photos/14133418/pexels-photo-14133418.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Gold", "description": "Beautifully handcrafted 22K gold jhumka earrings with delicate filigree work.", 
         "purity": "22K Gold", "weightInGrams": 8.5 
     },
     { 
         "id": "p4", "vendorName": "Giva", "name": "Minimalist Silver Bracelet", "price": 7500.0, 
-        "imageUrl": "https://images.unsplash.com/photo-1611591437281-462bf4d3ab45?w=800&q=80", 
+        "imageUrl": "https://images.pexels.com/photos/965990/pexels-photo-965990.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Silver", "description": "A sleek and modern sterling silver bracelet, perfect for everyday wear.", 
         "purity": "925 Silver", "weightInGrams": 12.0 
     },
     { 
         "id": "p5", "vendorName": "CaratLane", "name": "Geometric Platinum Band", "price": 71000.0, 
-        "imageUrl": "https://images.unsplash.com/photo-1599351431202-171b72a0a20e?w=800&q=80", 
+        "imageUrl": "https://images.pexels.com/photos/265906/pexels-photo-265906.jpeg?auto=compress&cs=tinysrgb&w=800", 
         "metal": "Platinum", "description": "A contemporary platinum band with a unique geometric design.", 
         "purity": "Pt 950", "weightInGrams": 9.0 
     }
@@ -139,6 +139,7 @@ const topJewellers = [
     { "id": "store2", "name": "Tanishq - Vashi", "distance": "3.5 km", "rating": 4.9, "isVerified": true, "tags": ["Top Rated"] },
     { "id": "store3", "name": "Giva Silver", "distance": "4.0 km", "rating": 4.5, "isVerified": false, "tags": ["Silver Only"] }
 ];
+
 
 // --- API ROUTES ---
 app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
