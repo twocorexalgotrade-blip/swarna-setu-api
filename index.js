@@ -26,12 +26,7 @@ const createVendorsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try {
-    await pool.query(queryText);
-    console.log('"vendors" table is ready.');
-  } catch (err) {
-    console.error('Error creating vendors table', err.stack);
-  }
+  try { await pool.query(queryText); console.log('"vendors" table is ready.'); } catch (err) { console.error('Error creating vendors table', err.stack); }
 };
 const createUsersTable = async () => {
   const queryText = `
@@ -43,12 +38,7 @@ const createUsersTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try {
-    await pool.query(queryText);
-    console.log('"users" table is ready.');
-  } catch (err) {
-    console.error('Error creating users table', err.stack);
-  }
+  try { await pool.query(queryText); console.log('"users" table is ready.'); } catch (err) { console.error('Error creating users table', err.stack); }
 };
 const createProductsTable = async () => {
   const queryText = `
@@ -65,12 +55,7 @@ const createProductsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try {
-    await pool.query(queryText);
-    console.log('"products" table is ready.');
-  } catch (err) {
-    console.error('Error creating products table', err.stack);
-  }
+  try { await pool.query(queryText); console.log('"products" table is ready.'); } catch (err) { console.error('Error creating products table', err.stack); }
 };
 const createBagItemsTable = async () => {
   const queryText = `
@@ -85,12 +70,7 @@ const createBagItemsTable = async () => {
       added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try {
-    await pool.query(queryText);
-    console.log('"bag_items" table is ready.');
-  } catch (err) {
-    console.error('Error creating bag_items table', err.stack);
-  }
+  try { await pool.query(queryText); console.log('"bag_items" table is ready.'); } catch (err) { console.error('Error creating bag_items table', err.stack); }
 };
 
 // Middleware
@@ -98,46 +78,15 @@ app.use(cors());
 app.use(express.json());
 
 // --- MOCK DATABASE (Using Local Asset Paths) ---
-
 const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA" };
 
 const highQualityProducts = [
-    { 
-        "id": "p1", "vendorName": "Tanishq", "name": "Teardrop Diamond Pendant", "price": 32000.0, 
-        "imageUrl": "assets/images/Teardrop Shaped Yellow Gold and Diamond Pendant1.1.jpg", 
-        "metal": "Diamond", "description": "Daily Wear Gold and Diamond Studded Pendant crafted in 18 Karat Yellow Gold.", 
-        "purity": "18K Gold", "weightInGrams": 1.138
-    },
-    { 
-        "id": "p2", "vendorName": "BlueStone", "name": "Elegant Gold Leaf Pendant", "price": 18000.0, 
-        "imageUrl": "assets/images/Elegant Gold Leaf Pendant1.1.jpg", 
-        "metal": "Gold", "description": "This exquisite 22 Karat gold pendant is in the shape of a leaf.", 
-        "purity": "22K Gold", "weightInGrams": 0.846
-    },
-    { 
-        "id": "p3", "vendorName": "Senco Gold", "name": "Starry Elegance Gold Anklet", "price": 29500.0, 
-        "imageUrl": "assets/images/Starry Elegance Gold Anklet1.1.jpg",
-        "metal": "Gold", "description": "Shine bright with this 18 Karat yellow gold Anklet, adorned with star and leaf danglers.", 
-        "purity": "18K Gold", "weightInGrams": 2.1 
-    },
-    { 
-        "id": "p4", "vendorName": "CaratLane", "name": "Guardian Edge Diamond Pendant", "price": 85000.0, 
-        "imageUrl": "assets/images/Guardian Edge Diamond Pendant For Men1.jpg",
-        "metal": "Diamond", "description": "Step into strength with this 18 Karat yellow gold shield Pendant for men.", 
-        "purity": "18K Gold", "weightInGrams": 4.568
-    },
-    { 
-        "id": "p5", "vendorName": "Malabar Gold", "name": "Guiding Star Gold Pendant", "price": 58000.0, 
-        "imageUrl": "assets/images/Guiding Star Gold Pendant For Men1.jpg",
-        "metal": "Gold", "description": "Bold compass-inspired Pendant in 22 Karat yellow gold.", 
-        "purity": "22K Gold", "weightInGrams": 5.404
-    },
-    { 
-        "id": "p6", "vendorName": "Tanishq", "name": "Ethnic Gold Maang Tikka", "price": 92000.0, 
-        "imageUrl": "assets/images/Maang Tikka1.1.jpg",
-        "metal": "Gold", "description": "Stand out from the crowd with this maang tikka crafted in 22 Karat Yellow Gold.", 
-        "purity": "22K Gold", "weightInGrams": 8.476
-    }
+    { "id": "p1", "vendorName": "Tanishq", "name": "Teardrop Diamond Pendant", "price": 32000.0, "imageUrl": "assets/images/Teardrop Shaped Yellow Gold and Diamond Pendant1.1.jpg", "metal": "Diamond", "description": "Daily Wear Gold and Diamond Studded Pendant crafted in 18 Karat Yellow Gold.", "purity": "18K Gold", "weightInGrams": 1.138 },
+    { "id": "p2", "vendorName": "BlueStone", "name": "Elegant Gold Leaf Pendant", "price": 18000.0, "imageUrl": "assets/images/Elegant Gold Leaf Pendant1.1.jpg", "metal": "Gold", "description": "This exquisite 22 Karat gold pendant is in the shape of a leaf.", "purity": "22K Gold", "weightInGrams": 0.846 },
+    { "id": "p3", "vendorName": "Senco Gold", "name": "Starry Elegance Gold Anklet", "price": 29500.0, "imageUrl": "assets/images/Starry Elegance Gold Anklet1.1.jpg", "metal": "Gold", "description": "Shine bright with this 18 Karat yellow gold Anklet, adorned with star and leaf danglers.", "purity": "18K Gold", "weightInGrams": 2.1 },
+    { "id": "p4", "vendorName": "CaratLane", "name": "Guardian Edge Diamond Pendant", "price": 85000.0, "imageUrl": "assets/images/Guardian Edge Diamond Pendant For Men1.jpg", "metal": "Diamond", "description": "Step into strength with this 18 Karat yellow gold shield Pendant for men.", "purity": "18K Gold", "weightInGrams": 4.568 },
+    { "id": "p5", "vendorName": "Malabar Gold", "name": "Guiding Star Gold Pendant", "price": 58000.0, "imageUrl": "assets/images/Guiding Star Gold Pendant For Men1.jpg", "metal": "Gold", "description": "Bold compass-inspired Pendant in 22 Karat yellow gold.", "purity": "22K Gold", "weightInGrams": 5.404 },
+    { "id": "p6", "vendorName": "Tanishq", "name": "Ethnic Gold Maang Tikka", "price": 92000.0, "imageUrl": "assets/images/Maang Tikka1.1.jpg", "metal": "Gold", "description": "Stand out from the crowd with this maang tikka crafted in 22 Karat Yellow Gold.", "purity": "22K Gold", "weightInGrams": 8.476 }
 ];
 
 const topJewellers = [
@@ -145,7 +94,6 @@ const topJewellers = [
     { "id": "store2", "name": "Tanishq - Vashi", "distance": "3.5 km", "rating": 4.9, "isVerified": true, "tags": ["Top Rated"] },
     { "id": "store3", "name": "CaratLane", "distance": "4.0 km", "rating": 4.7, "isVerified": true, "tags": [] }
 ];
-
 
 // --- API ROUTES ---
 app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
@@ -259,13 +207,11 @@ app.put('/api/vendor/products/:id', async (req, res) => {
     }
 });
 
-// --- USER APP HOME PAGE ROUTES ---
+// --- USER APP ROUTES ---
 app.get('/api/gold-rate', (req, res) => { res.status(200).json(liveGoldRate); });
 app.get('/api/trending', (req, res) => {
     const { metal } = req.query;
-    if (!metal || metal.toLowerCase() === 'all') {
-        return res.status(200).json(highQualityProducts);
-    }
+    if (!metal || metal.toLowerCase() === 'all') return res.status(200).json(highQualityProducts);
     const filteredProducts = highQualityProducts.filter(p => p.metal.toLowerCase() === metal.toLowerCase());
     res.status(200).json(filteredProducts);
 });
@@ -277,6 +223,18 @@ app.get('/api/top-jewellers', (req, res) => {
 app.get('/api/products/featured', (req, res) => {
     console.log('GET /api/products/featured - Request received');
     res.status(200).json(highQualityProducts);
+});
+
+// GET a single product by its ID
+app.get('/api/products/:id', (req, res) => {
+    const { id } = req.params;
+    console.log(`GET /api/products/${id} - Request received`);
+    const product = highQualityProducts.find(p => p.id === id);
+    if (product) {
+        res.status(200).json(product);
+    } else {
+        res.status(404).json({ message: "Product not found." });
+    }
 });
 
 // --- BAG / CART ROUTES ---
@@ -296,10 +254,7 @@ app.post('/api/bag', async (req, res) => {
     console.log('POST /api/bag - Adding product to bag:', req.body);
     if (!userId || !productId || !productName || !price) return res.status(400).json({ message: "User, product, name, and price are required." });
     try {
-        const newItem = await pool.query(
-            "INSERT INTO bag_items (user_id, product_id, product_name, product_image_url, vendor_name, price) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-            [userId, productId, productName, productImageUrl, vendorName, price]
-        );
+        const newItem = await pool.query("INSERT INTO bag_items (user_id, product_id, product_name, product_image_url, vendor_name, price) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *", [userId, productId, productName, productImageUrl, vendorName, price]);
         res.status(201).json(newItem.rows[0]);
     } catch (err) {
         console.error(err.message);
