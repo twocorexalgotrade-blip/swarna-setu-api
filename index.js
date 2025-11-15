@@ -97,47 +97,53 @@ const createBagItemsTable = async () => {
 app.use(cors());
 app.use(express.json());
 
-// --- MOCK DATABASE (UPDATED WITH VERIFIED STOCK PHOTOS) ---
+// --- MOCK DATABASE (Using Local Asset Paths) ---
 
 const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA" };
 
 const highQualityProducts = [
     { 
-        "id": "p1", "vendorName": "Tanishq", "name": "Elegant Diamond Solitaire", "price": 115500.0, 
-        "imageUrl": "https://images.pexels.com/photos/2735970/pexels-photo-2735970.jpeg?auto=compress&cs=tinysrgb&w=800", 
-        "metal": "Diamond", "description": "A classic 1-carat solitaire diamond ring set in a timeless platinum band.", 
-        "purity": "Platinum 950", "weightInGrams": 5.2 
+        "id": "p1", "vendorName": "Tanishq", "name": "Teardrop Diamond Pendant", "price": 32000.0, 
+        "imageUrl": "assets/images/Teardrop Shaped Yellow Gold and Diamond Pendant1.1.jpg", 
+        "metal": "Diamond", "description": "Daily Wear Gold and Diamond Studded Pendant crafted in 18 Karat Yellow Gold.", 
+        "purity": "18K Gold", "weightInGrams": 1.138
     },
     { 
-        "id": "p2", "vendorName": "BlueStone", "name": "Royal Antique Necklace", "price": 280000.0, 
-        "imageUrl": "https://images.pexels.com/photos/128303/pexels-photo-128303.jpeg?auto=compress&cs=tinysrgb&w=800", 
-        "metal": "Gold", "description": "An intricate heritage necklace handcrafted in 22K pure gold, inspired by temple architecture.", 
-        "purity": "22K Gold", "weightInGrams": 25.0 
+        "id": "p2", "vendorName": "BlueStone", "name": "Elegant Gold Leaf Pendant", "price": 18000.0, 
+        "imageUrl": "assets/images/Elegant Gold Leaf Pendant1.1.jpg", 
+        "metal": "Gold", "description": "This exquisite 22 Karat gold pendant is in the shape of a leaf.", 
+        "purity": "22K Gold", "weightInGrams": 0.846
     },
     { 
-        "id": "p3", "vendorName": "Senco Gold", "name": "Traditional Gold Jhumkas", "price": 62000.0, 
-        "imageUrl": "https://images.pexels.com/photos/16623432/pexels-photo-16623432/free-photo-of-close-up-of-traditional-indian-jhumka-earrings.jpeg?auto=compress&cs=tinysrgb&w=800", 
-        "metal": "Gold", "description": "Beautifully handcrafted 22K gold jhumka earrings with delicate filigree work.", 
-        "purity": "22K Gold", "weightInGrams": 8.5 
+        "id": "p3", "vendorName": "Senco Gold", "name": "Starry Elegance Gold Anklet", "price": 29500.0, 
+        "imageUrl": "assets/images/Starry Elegance Gold Anklet1.1.jpg",
+        "metal": "Gold", "description": "Shine bright with this 18 Karat yellow gold Anklet, adorned with star and leaf danglers.", 
+        "purity": "18K Gold", "weightInGrams": 2.1 
     },
     { 
-        "id": "p4", "vendorName": "Giva", "name": "Minimalist Silver Bracelet", "price": 7500.0, 
-        "imageUrl": "https://images.pexels.com/photos/2876033/pexels-photo-2876033.jpeg?auto=compress&cs=tinysrgb&w=800", 
-        "metal": "Silver", "description": "A sleek and modern sterling silver bracelet, perfect for everyday wear.", 
-        "purity": "925 Silver", "weightInGrams": 12.0 
+        "id": "p4", "vendorName": "CaratLane", "name": "Guardian Edge Diamond Pendant", "price": 85000.0, 
+        "imageUrl": "assets/images/Guardian Edge Diamond Pendant For Men1.jpg",
+        "metal": "Diamond", "description": "Step into strength with this 18 Karat yellow gold shield Pendant for men.", 
+        "purity": "18K Gold", "weightInGrams": 4.568
     },
     { 
-        "id": "p5", "vendorName": "CaratLane", "name": "Geometric Platinum Band", "price": 71000.0, 
-        "imageUrl": "https://images.pexels.com/photos/1395313/pexels-photo-1395313.jpeg?auto=compress&cs=tinysrgb&w=800", 
-        "metal": "Platinum", "description": "A contemporary platinum band with a unique geometric design.", 
-        "purity": "Pt 950", "weightInGrams": 9.0 
+        "id": "p5", "vendorName": "Malabar Gold", "name": "Guiding Star Gold Pendant", "price": 58000.0, 
+        "imageUrl": "assets/images/Guiding Star Gold Pendant For Men1.jpg",
+        "metal": "Gold", "description": "Bold compass-inspired Pendant in 22 Karat yellow gold.", 
+        "purity": "22K Gold", "weightInGrams": 5.404
+    },
+    { 
+        "id": "p6", "vendorName": "Tanishq", "name": "Ethnic Gold Maang Tikka", "price": 92000.0, 
+        "imageUrl": "assets/images/Maang Tikka1.1.jpg",
+        "metal": "Gold", "description": "Stand out from the crowd with this maang tikka crafted in 22 Karat Yellow Gold.", 
+        "purity": "22K Gold", "weightInGrams": 8.476
     }
 ];
 
 const topJewellers = [
     { "id": "store1", "name": "Shri Hari Jewels", "distance": "2.1 km", "rating": 4.8, "isVerified": true, "tags": ["Sponsored", "Gold Specialist"] },
     { "id": "store2", "name": "Tanishq - Vashi", "distance": "3.5 km", "rating": 4.9, "isVerified": true, "tags": ["Top Rated"] },
-    { "id": "store3", "name": "Giva Silver", "distance": "4.0 km", "rating": 4.5, "isVerified": false, "tags": ["Silver Only"] }
+    { "id": "store3", "name": "CaratLane", "distance": "4.0 km", "rating": 4.7, "isVerified": true, "tags": [] }
 ];
 
 
@@ -263,7 +269,11 @@ app.get('/api/trending', (req, res) => {
     const filteredProducts = highQualityProducts.filter(p => p.metal.toLowerCase() === metal.toLowerCase());
     res.status(200).json(filteredProducts);
 });
-app.get('/api/top-jewellers', (req, res) => { res.status(200).json(topJewellers); });
+app.get('/api/top-jewellers', (req, res) => {
+    const { lat, lon, radius } = req.query;
+    console.log(`GET /api/top-jewellers - Request received for lat: ${lat}, lon: ${lon}, radius: ${radius}km`);
+    res.status(200).json(topJewellers);
+});
 app.get('/api/products/featured', (req, res) => {
     console.log('GET /api/products/featured - Request received');
     res.status(200).json(highQualityProducts);
