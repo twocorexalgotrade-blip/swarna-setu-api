@@ -223,25 +223,21 @@ app.get('/api/gold-rate', async (req, res) => {
             const xauClose = item.xauClose; // Previous Close (AM Proxy)
 
             const conversionFactor = 31.1035;
-            const PREMIUM_MARKUP = 1.035;
 
-            // Calculate Rates
-            const pmRateRaw = xauPrice / conversionFactor;
-            const amRateRaw = xauClose / conversionFactor;
-
-            const pmRate = Math.round(pmRateRaw * PREMIUM_MARKUP);
-            const amRate = Math.round(amRateRaw * PREMIUM_MARKUP);
+            // Calculate Rates (Raw Spot - No Premium)
+            const pmRate = Math.round(xauPrice / conversionFactor);
+            const amRate = Math.round(xauClose / conversionFactor);
 
             const liveRate = {
                 "metal": "Gold",
                 "purity": "24K",
-                "rate_per_gram": pmRate, // Default to PM for backward compat
+                "rate_per_gram": pmRate, // Default to PM
                 "am_rate": amRate,
                 "pm_rate": pmRate,
                 "timestamp": new Date().toISOString(),
-                "source": "MCX (Live Estimate)"
+                "source": "MCX (International Spot)"
             };
-            console.log(`Rates -> AM: ₹${amRate}, PM: ₹${pmRate}`);
+            console.log(`Rates (Raw) -> AM: ₹${amRate}, PM: ₹${pmRate}`);
             return res.status(200).json(liveRate);
         } else {
             throw new Error("Invalid data format from API");
