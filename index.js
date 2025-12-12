@@ -10,15 +10,15 @@ const PORT = process.env.PORT || 3000;
 
 // --- DATABASE CONNECTION ---
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
 // --- TABLE CREATION FUNCTIONS ---
 const createVendorsTable = async () => {
-  const queryText = `
+    const queryText = `
     CREATE TABLE IF NOT EXISTS vendors (
       id SERIAL PRIMARY KEY,
       email VARCHAR(255) UNIQUE NOT NULL,
@@ -26,10 +26,10 @@ const createVendorsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try { await pool.query(queryText); console.log('"vendors" table is ready.'); } catch (err) { console.error('Error creating vendors table', err.stack); }
+    try { await pool.query(queryText); console.log('"vendors" table is ready.'); } catch (err) { console.error('Error creating vendors table', err.stack); }
 };
 const createUsersTable = async () => {
-  const queryText = `
+    const queryText = `
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -38,10 +38,10 @@ const createUsersTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try { await pool.query(queryText); console.log('"users" table is ready.'); } catch (err) { console.error('Error creating users table', err.stack); }
+    try { await pool.query(queryText); console.log('"users" table is ready.'); } catch (err) { console.error('Error creating users table', err.stack); }
 };
 const createProductsTable = async () => {
-  const queryText = `
+    const queryText = `
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
@@ -55,10 +55,10 @@ const createProductsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try { await pool.query(queryText); console.log('"products" table is ready.'); } catch (err) { console.error('Error creating products table', err.stack); }
+    try { await pool.query(queryText); console.log('"products" table is ready.'); } catch (err) { console.error('Error creating products table', err.stack); }
 };
 const createBagItemsTable = async () => {
-  const queryText = `
+    const queryText = `
     CREATE TABLE IF NOT EXISTS bag_items (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -70,7 +70,7 @@ const createBagItemsTable = async () => {
       added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-  try { await pool.query(queryText); console.log('"bag_items" table is ready.'); } catch (err) { console.error('Error creating bag_items table', err.stack); }
+    try { await pool.query(queryText); console.log('"bag_items" table is ready.'); } catch (err) { console.error('Error creating bag_items table', err.stack); }
 };
 
 // Middleware
@@ -214,21 +214,25 @@ app.get('/api/gold-rate', async (req, res) => {
     try {
         // Fetch from goldprice.org (Free public endpoint)
         const response = await axios.get('https://data-asg.goldprice.org/dbXRates/INR', {
-             headers: { 'User-Agent': 'Mozilla/5.0' } // Fake UA to avoid block
+            headers: { 'User-Agent': 'Mozilla/5.0' } // Fake UA to avoid block
         });
-        
+
         if (response.data && response.data.items && response.data.items.length > 0) {
             const xauPrice = response.data.items[0].xauPrice; // Price per Ounce in INR
-            const ratePerGram = xauPrice / 31.1035; // Convert Ounce to Gram
-            
+            const ratePerGramRaw = xauPrice / 31.1035; // Convert Ounce to Gram
+
+            // Add a ~3.5% premium to match IBJA Retail Selling Rates (Import Duty/Market Premium)
+            const PREMIUM_MARKUP = 1.035;
+            const ratePerGram = ratePerGramRaw * PREMIUM_MARKUP;
+
             const liveRate = {
                 "metal": "Gold",
                 "purity": "24K",
-                "rate_per_gram": parseFloat(ratePerGram.toFixed(2)),
+                "rate_per_gram": parseFloat(ratePerGram.toFixed(0)), // Round to nearest integer for clean display
                 "timestamp": new Date().toISOString(),
-                "source": "GoldPrice.org (Live)"
+                "source": "GoldPrice.org + ~3.5% EST. Duty"
             };
-            console.log(`Fetched Live Gold Rate: ₹${liveRate.rate_per_gram}/g`);
+            console.log(`Fetched Live Gold Rate (Raw): ₹${ratePerGramRaw.toFixed(2)} -> Adjusted: ₹${liveRate.rate_per_gram}/g`);
             return res.status(200).json(liveRate);
         } else {
             throw new Error("Invalid data format from API");
@@ -236,12 +240,12 @@ app.get('/api/gold-rate', async (req, res) => {
     } catch (error) {
         console.error("Error fetching live gold rate:", error.message);
         // Fallback
-        res.status(200).json({ 
-            "metal": "Gold", 
-            "purity": "24K", 
-            "rate_per_gram": 6540.00, 
-            "timestamp": new Date().toISOString(), 
-            "source": "IBJA (Fallback/Mock)" 
+        res.status(200).json({
+            "metal": "Gold",
+            "purity": "24K",
+            "rate_per_gram": 6540.00,
+            "timestamp": new Date().toISOString(),
+            "source": "IBJA (Fallback/Mock)"
         });
     }
 });
@@ -312,10 +316,10 @@ app.delete('/api/bag/:itemId', async (req, res) => {
 
 // Start the server
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  createVendorsTable();
-  createUsersTable();
-  createProductsTable();
-  createBagItemsTable();
-  console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
+    console.log(`Server is running on port ${PORT}`);
+    createVendorsTable();
+    createUsersTable();
+    createProductsTable();
+    createBagItemsTable();
+    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
