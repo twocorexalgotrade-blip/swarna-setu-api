@@ -224,20 +224,26 @@ app.get('/api/gold-rate', async (req, res) => {
 
             const conversionFactor = 31.1035;
 
-            // Calculate Rates (Raw Spot - No Premium)
-            const pmRate = Math.round(xauPrice / conversionFactor);
-            const amRate = Math.round(xauClose / conversionFactor);
+            // Indian Market Calibration
+            // International Spot (~12448) vs Indian Retail 24k (~13440)
+            // Difference is due to Import Duty (6-15%) + GST (3%) + Logistical Premiums
+            // We apply a ~8% calibration to match market leaders like Jar/Groww
+            const INDIAN_MARKET_CALIBRATION = 1.08;
+
+            // Calculate Rates
+            const pmRate = Math.round((xauPrice / conversionFactor) * INDIAN_MARKET_CALIBRATION);
+            const amRate = Math.round((xauClose / conversionFactor) * INDIAN_MARKET_CALIBRATION);
 
             const liveRate = {
                 "metal": "Gold",
                 "purity": "24K",
-                "rate_per_gram": pmRate, // Default to PM
+                "rate_per_gram": pmRate,
                 "am_rate": amRate,
                 "pm_rate": pmRate,
                 "timestamp": new Date().toISOString(),
-                "source": "International Live Rate"
+                "source": "International Live Rate (+Duty)"
             };
-            console.log(`Rates (Raw) -> AM: ₹${amRate}, PM: ₹${pmRate}`);
+            console.log(`Rates (Calibrated) -> AM: ₹${amRate}, PM: ₹${pmRate}`);
             return res.status(200).json(liveRate);
         } else {
             throw new Error("Invalid data format from API");
