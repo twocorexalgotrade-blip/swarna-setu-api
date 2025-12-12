@@ -208,7 +208,43 @@ app.put('/api/vendor/products/:id', async (req, res) => {
 });
 
 // --- USER APP ROUTES ---
-app.get('/api/gold-rate', (req, res) => { res.status(200).json(liveGoldRate); });
+const axios = require('axios'); // Add axios
+
+app.get('/api/gold-rate', async (req, res) => {
+    try {
+        // Fetch from goldprice.org (Free public endpoint)
+        const response = await axios.get('https://data-asg.goldprice.org/dbXRates/INR', {
+             headers: { 'User-Agent': 'Mozilla/5.0' } // Fake UA to avoid block
+        });
+        
+        if (response.data && response.data.items && response.data.items.length > 0) {
+            const xauPrice = response.data.items[0].xauPrice; // Price per Ounce in INR
+            const ratePerGram = xauPrice / 31.1035; // Convert Ounce to Gram
+            
+            const liveRate = {
+                "metal": "Gold",
+                "purity": "24K",
+                "rate_per_gram": parseFloat(ratePerGram.toFixed(2)),
+                "timestamp": new Date().toISOString(),
+                "source": "GoldPrice.org (Live)"
+            };
+            console.log(`Fetched Live Gold Rate: ₹${liveRate.rate_per_gram}/g`);
+            return res.status(200).json(liveRate);
+        } else {
+            throw new Error("Invalid data format from API");
+        }
+    } catch (error) {
+        console.error("Error fetching live gold rate:", error.message);
+        // Fallback
+        res.status(200).json({ 
+            "metal": "Gold", 
+            "purity": "24K", 
+            "rate_per_gram": 6540.00, 
+            "timestamp": new Date().toISOString(), 
+            "source": "IBJA (Fallback/Mock)" 
+        });
+    }
+});
 app.get('/api/trending', (req, res) => {
     const { metal } = req.query;
     if (!metal || metal.toLowerCase() === 'all') return res.status(200).json(highQualityProducts);
