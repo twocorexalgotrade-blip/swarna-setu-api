@@ -218,21 +218,30 @@ app.get('/api/gold-rate', async (req, res) => {
         });
 
         if (response.data && response.data.items && response.data.items.length > 0) {
-            const xauPrice = response.data.items[0].xauPrice; // Price per Ounce in INR
-            const ratePerGramRaw = xauPrice / 31.1035; // Convert Ounce to Gram
+            const item = response.data.items[0];
+            const xauPrice = item.xauPrice; // Current Live (PM Proxy)
+            const xauClose = item.xauClose; // Previous Close (AM Proxy)
 
-            // Add a ~3.5% premium to match IBJA Retail Selling Rates (Import Duty/Market Premium)
+            const conversionFactor = 31.1035;
             const PREMIUM_MARKUP = 1.035;
-            const ratePerGram = ratePerGramRaw * PREMIUM_MARKUP;
+
+            // Calculate Rates
+            const pmRateRaw = xauPrice / conversionFactor;
+            const amRateRaw = xauClose / conversionFactor;
+
+            const pmRate = Math.round(pmRateRaw * PREMIUM_MARKUP);
+            const amRate = Math.round(amRateRaw * PREMIUM_MARKUP);
 
             const liveRate = {
                 "metal": "Gold",
                 "purity": "24K",
-                "rate_per_gram": parseFloat(ratePerGram.toFixed(0)), // Round to nearest integer for clean display
+                "rate_per_gram": pmRate, // Default to PM for backward compat
+                "am_rate": amRate,
+                "pm_rate": pmRate,
                 "timestamp": new Date().toISOString(),
-                "source": "GoldPrice.org + ~3.5% EST. Duty"
+                "source": "MCX (Live Estimate)"
             };
-            console.log(`Fetched Live Gold Rate (Raw): ₹${ratePerGramRaw.toFixed(2)} -> Adjusted: ₹${liveRate.rate_per_gram}/g`);
+            console.log(`Rates -> AM: ₹${amRate}, PM: ₹${pmRate}`);
             return res.status(200).json(liveRate);
         } else {
             throw new Error("Invalid data format from API");
