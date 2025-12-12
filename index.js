@@ -235,7 +235,7 @@ app.get('/api/gold-rate', async (req, res) => {
                 "am_rate": amRate,
                 "pm_rate": pmRate,
                 "timestamp": new Date().toISOString(),
-                "source": "MCX (International Spot)"
+                "source": "International Live Rate"
             };
             console.log(`Rates (Raw) -> AM: ₹${amRate}, PM: ₹${pmRate}`);
             return res.status(200).json(liveRate);
