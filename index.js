@@ -76,6 +76,27 @@ const createBagItemsTable = async () => {
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static('public')); // Serve static files from 'public' directory
+
+// --- DATABASE MIGRATIONS ---
+const performMigrations = async () => {
+    try {
+        // Add mobile_number column if not exists
+        await pool.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='mobile_number') THEN 
+                    ALTER TABLE users ADD COLUMN mobile_number VARCHAR(15) UNIQUE; 
+                END IF;
+            END $$;
+        `);
+        // Make email/password nullable if we are shifting to Mobile-first (Optional step, keeping simple for now)
+        // For now, we will handle 'complete-profile' by updating or inserting.
+        console.log("Database migrations checked/performed.");
+    } catch (err) {
+        console.error("Migration error:", err.message);
+    }
+};
 
 // --- MOCK DATABASE (Using Local Asset Paths) ---
 const liveGoldRate = { "metal": "Gold", "purity": "24K", "rate_per_gram": 6540.00, "timestamp": new Date().toISOString(), "source": "IBJA" };
@@ -97,6 +118,96 @@ const topJewellers = [
 
 // --- API ROUTES ---
 app.get('/', (req, res) => res.send('Swarna Setu API is running!'));
+
+// --- ADMIN ROUTES ---
+app.get('/admin', (req, res) => {
+    res.sendFile(__dirname + '/public/admin.html');
+});
+
+app.get('/api/admin/users', async (req, res) => {
+    try {
+        const result = await pool.query("SELECT id, name, email, mobile_number, created_at FROM users ORDER BY created_at DESC");
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to fetch users' });
+    }
+});
+
+app.delete('/api/admin/users/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query("DELETE FROM users WHERE id = $1", [id]);
+        res.json({ message: 'User deleted successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to delete user' });
+    }
+});
+
+// --- AUTH: NUMBER CHECK ROUTES ---
+app.post('/api/auth/check-mobile', async (req, res) => {
+    const { mobileNumber } = req.body;
+    if (!mobileNumber) return res.status(400).json({ message: "Mobile number is required" });
+
+    try {
+        const result = await pool.query("SELECT * FROM users WHERE mobile_number = $1", [mobileNumber]);
+        if (result.rows.length > 0) {
+            // User exists
+            return res.json({ exists: true, user: result.rows[0] });
+        } else {
+            // User does not exist
+            return res.json({ exists: false });
+        }
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error checking mobile" });
+    }
+});
+
+app.post('/api/user/complete-profile', async (req, res) => {
+    // This assumes we are creating a new user row or updating a partial one.
+    // Inputs: mobileNumber, firstName, lastName, title, dob, gender
+    const { mobileNumber, firstName, lastName, title, dob, gender } = req.body;
+
+    if (!mobileNumber || !firstName || !lastName) {
+        return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    try {
+        // Check if exists first (to avoid duplicate key error if called twice)
+        const check = await pool.query("SELECT id FROM users WHERE mobile_number = $1", [mobileNumber]);
+
+        let user;
+        if (check.rows.length > 0) {
+            // Update existing (maybe they backed out halfway?)
+            const updateQuery = `
+                UPDATE users 
+                SET name = $1, created_at = CURRENT_TIMESTAMP -- We'll just map first space last to Name for now
+                WHERE mobile_number = $2 
+                RETURNING *
+            `;
+            user = await pool.query(updateQuery, [`${firstName} ${lastName}`, mobileNumber]);
+        } else {
+            // Insert new
+            // Note: Email/Password are NOT NULL in original schema. We might need to dummy them or make them nullable.
+            // For now, let's insert a dummy email/password if they are required constraints.
+            const dummyEmail = `${mobileNumber}@swarnasetu.com`; // Unique placeholder
+            const dummyPass = await bcrypt.hash('otp-login', 10);
+
+            const insertQuery = `
+                INSERT INTO users (name, mobile_number, email, password) 
+                VALUES ($1, $2, $3, $4) 
+                RETURNING *
+            `;
+            user = await pool.query(insertQuery, [`${firstName} ${lastName}`, mobileNumber, dummyEmail, dummyPass]);
+        }
+        res.json({ success: true, user: user.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error saving profile" });
+    }
+});
 
 // --- VENDOR AUTH ROUTES ---
 app.post('/api/auth/vendor/register', async (req, res) => {
@@ -326,11 +437,12 @@ app.delete('/api/bag/:itemId', async (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
-    createVendorsTable();
-    createUsersTable();
-    createProductsTable();
-    createBagItemsTable();
+    await createVendorsTable();
+    await createUsersTable();
+    await createProductsTable();
+    await createBagItemsTable();
+    await performMigrations(); // Run migrations specifically for mobile_number
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
