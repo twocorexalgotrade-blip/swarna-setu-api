@@ -88,6 +88,21 @@ const performMigrations = async () => {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='mobile_number') THEN 
                     ALTER TABLE users ADD COLUMN mobile_number VARCHAR(15) UNIQUE; 
                 END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='first_name') THEN 
+                    ALTER TABLE users ADD COLUMN first_name VARCHAR(255); 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_name') THEN 
+                    ALTER TABLE users ADD COLUMN last_name VARCHAR(255); 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='title') THEN 
+                    ALTER TABLE users ADD COLUMN title VARCHAR(50); 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='dob') THEN 
+                    ALTER TABLE users ADD COLUMN dob VARCHAR(50); 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='gender') THEN 
+                    ALTER TABLE users ADD COLUMN gender VARCHAR(50); 
+                END IF;
             END $$;
         `);
         // Make email/password nullable if we are shifting to Mobile-first (Optional step, keeping simple for now)
@@ -126,7 +141,7 @@ app.get('/admin', (req, res) => {
 
 app.get('/api/admin/users', async (req, res) => {
     try {
-        const result = await pool.query("SELECT id, name, email, mobile_number, created_at FROM users ORDER BY created_at DESC");
+        const result = await pool.query("SELECT id, name, email, mobile_number, first_name, last_name, title, dob, gender, created_at FROM users ORDER BY created_at DESC");
         res.json(result.rows);
     } catch (err) {
         console.error(err);
@@ -183,11 +198,11 @@ app.post('/api/user/complete-profile', async (req, res) => {
             // Update existing (maybe they backed out halfway?)
             const updateQuery = `
                 UPDATE users 
-                SET name = $1, created_at = CURRENT_TIMESTAMP -- We'll just map first space last to Name for now
-                WHERE mobile_number = $2 
+                SET name = $1, first_name = $2, last_name = $3, title = $4, dob = $5, gender = $6, created_at = CURRENT_TIMESTAMP 
+                WHERE mobile_number = $7 
                 RETURNING *
             `;
-            user = await pool.query(updateQuery, [`${firstName} ${lastName}`, mobileNumber]);
+            user = await pool.query(updateQuery, [`${firstName} ${lastName}`, firstName, lastName, title, dob, gender, mobileNumber]);
         } else {
             // Insert new
             // Note: Email/Password are NOT NULL in original schema. We might need to dummy them or make them nullable.
@@ -196,11 +211,11 @@ app.post('/api/user/complete-profile', async (req, res) => {
             const dummyPass = await bcrypt.hash('otp-login', 10);
 
             const insertQuery = `
-                INSERT INTO users (name, mobile_number, email, password) 
-                VALUES ($1, $2, $3, $4) 
+                INSERT INTO users (name, mobile_number, email, password, first_name, last_name, title, dob, gender) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
                 RETURNING *
             `;
-            user = await pool.query(insertQuery, [`${firstName} ${lastName}`, mobileNumber, dummyEmail, dummyPass]);
+            user = await pool.query(insertQuery, [`${firstName} ${lastName}`, mobileNumber, dummyEmail, dummyPass, firstName, lastName, title, dob, gender]);
         }
         res.json({ success: true, user: user.rows[0] });
     } catch (err) {
