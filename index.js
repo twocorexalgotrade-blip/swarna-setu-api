@@ -103,6 +103,23 @@ const createOrderItemsTable = async () => {
   `;
     try { await pool.query(queryText); console.log('"order_items" table is ready.'); } catch (err) { console.error('Error creating order_items table', err.stack); }
 };
+const createAddressesTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS addresses (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      line1 TEXT NOT NULL,
+      line2 TEXT,
+      city VARCHAR(100) NOT NULL,
+      zip VARCHAR(20) NOT NULL,
+      mobile VARCHAR(20) NOT NULL,
+      is_default BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"addresses" table is ready.'); } catch (err) { console.error('Error creating addresses table', err.stack); }
+};
 
 // Middleware
 app.use(cors());
@@ -445,6 +462,60 @@ app.get('/api/products/:id', (req, res) => {
     }
 });
 
+// --- ADDRESS ROUTES ---
+app.get('/api/addresses/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const result = await pool.query("SELECT * FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC", [userId]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching addresses." });
+    }
+});
+
+app.post('/api/addresses', async (req, res) => {
+    const { userId, name, line1, line2, city, zip, mobile, isDefault } = req.body;
+    if (!userId || !name || !line1 || !city || !zip || !mobile) {
+        return res.status(400).json({ message: "Missing required address fields." });
+    }
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        // If set as default, unset others
+        if (isDefault) {
+            await client.query("UPDATE addresses SET is_default = FALSE WHERE user_id = $1", [userId]);
+        }
+
+        const insertQuery = `
+            INSERT INTO addresses (user_id, name, line1, line2, city, zip, mobile, is_default)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING *
+        `;
+        const result = await client.query(insertQuery, [userId, name, line1, line2, city, zip, mobile, isDefault || false]);
+
+        await client.query('COMMIT');
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(err.message);
+        res.status(500).json({ message: "Server error saving address." });
+    } finally {
+        client.release();
+    }
+});
+
+app.delete('/api/addresses/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query("DELETE FROM addresses WHERE id = $1", [id]);
+        res.json({ message: "Address deleted successfully" });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error deleting address." });
+    }
+});
+
 // --- BAG / CART ROUTES ---
 app.get('/api/bag/:userId', async (req, res) => {
     const { userId } = req.params;
@@ -568,6 +639,7 @@ app.listen(PORT, async () => {
     await createBagItemsTable();
     await createOrdersTable();
     await createOrderItemsTable();
+    await createAddressesTable();
     await performMigrations(); // Run migrations specifically for mobile_number
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
