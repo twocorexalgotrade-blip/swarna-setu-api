@@ -72,6 +72,37 @@ const createBagItemsTable = async () => {
   `;
     try { await pool.query(queryText); console.log('"bag_items" table is ready.'); } catch (err) { console.error('Error creating bag_items table', err.stack); }
 };
+const createOrdersTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      total_amount NUMERIC(10, 2) NOT NULL,
+      status VARCHAR(50) NOT NULL, -- 'Pending', 'Confirmed', 'Delivered', 'Cancelled'
+      fulfillment_method VARCHAR(50), -- 'Home Delivery', 'Store Pickup'
+      payment_id VARCHAR(100),
+      delivery_address TEXT,
+      pickup_store TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"orders" table is ready.'); } catch (err) { console.error('Error creating orders table', err.stack); }
+};
+const createOrderItemsTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS order_items (
+      id SERIAL PRIMARY KEY,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id TEXT NOT NULL,
+      product_name VARCHAR(255) NOT NULL,
+      vendor_name VARCHAR(255),
+      product_image_url VARCHAR(255),
+      price NUMERIC(10, 2) NOT NULL,
+      quantity INTEGER DEFAULT 1
+    );
+  `;
+    try { await pool.query(queryText); console.log('"order_items" table is ready.'); } catch (err) { console.error('Error creating order_items table', err.stack); }
+};
 
 // Middleware
 app.use(cors());
@@ -451,6 +482,83 @@ app.delete('/api/bag/:itemId', async (req, res) => {
     }
 });
 
+// --- ORDER ROUTES ---
+app.post('/api/orders', async (req, res) => {
+    const { userId, totalAmount, status, fulfillmentMethod, paymentId, deliveryAddress, pickupStore, items } = req.body;
+
+    if (!userId || !totalAmount || !items || items.length === 0) {
+        return res.status(400).json({ message: "Missing required order fields." });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Create Order
+        const orderQuery = `
+            INSERT INTO orders (user_id, total_amount, status, fulfillment_method, delivery_address, pickup_store, payment_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING *
+        `;
+        const orderValues = [userId, totalAmount, status || 'Confirmed', fulfillmentMethod, deliveryAddress, pickupStore, paymentId];
+        const orderResult = await client.query(orderQuery, orderValues);
+        const newOrder = orderResult.rows[0];
+
+        // 2. Insert Order Items
+        const itemQuery = `
+            INSERT INTO order_items (order_id, product_id, product_name, vendor_name, product_image_url, price, quantity)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `;
+        for (const item of items) {
+            await client.query(itemQuery, [
+                newOrder.id,
+                item.productId,
+                item.productName,
+                item.vendorName,
+                item.imageUrl || item.productImageUrl,
+                item.price,
+                item.quantity || 1
+            ]);
+        }
+
+        // 3. Clear User's Bag (Server-side handling)
+        await client.query("DELETE FROM bag_items WHERE user_id = $1", [userId]);
+
+        await client.query('COMMIT');
+
+        // Return created order with items (could be optimized, but returning order details is fine)
+        res.status(201).json({ success: true, order: newOrder, message: "Order placed successfully" });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Order creation error:', err.message);
+        res.status(500).json({ message: "Server error creating order." });
+    } finally {
+        client.release();
+    }
+});
+
+app.get('/api/orders/user/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        // Fetch orders
+        const ordersResult = await pool.query("SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC", [userId]);
+        const orders = ordersResult.rows;
+
+        // Fetch items for each order
+        for (let order of orders) {
+            const itemsResult = await pool.query("SELECT * FROM order_items WHERE order_id = $1", [order.id]);
+            order.items = itemsResult.rows;
+        }
+
+        res.json(orders);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching orders." });
+    }
+});
+
 // Start the server
 app.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}`);
@@ -458,6 +566,8 @@ app.listen(PORT, async () => {
     await createUsersTable();
     await createProductsTable();
     await createBagItemsTable();
+    await createOrdersTable();
+    await createOrderItemsTable();
     await performMigrations(); // Run migrations specifically for mobile_number
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
