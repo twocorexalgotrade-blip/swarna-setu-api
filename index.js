@@ -40,7 +40,6 @@ const createUsersTable = async () => {
   `;
     try { await pool.query(queryText); console.log('"users" table is ready.'); } catch (err) { console.error('Error creating users table', err.stack); }
 };
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
 // Create vendor products table
 const createProductsTable = async () => {
