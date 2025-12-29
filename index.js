@@ -50,12 +50,31 @@ const createProductsTable = async () => {
       weight_grams NUMERIC(10, 2),
       category VARCHAR(100),
       purity VARCHAR(50),
-      image_url VARCHAR(255),
+      image_url TEXT,
       in_stock BOOLEAN DEFAULT TRUE,
+      supplier_id INTEGER,
+      purchase_price NUMERIC(10, 2),
+      is_published BOOLEAN DEFAULT FALSE,
+      published_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
     try { await pool.query(queryText); console.log('"products" table is ready.'); } catch (err) { console.error('Error creating products table', err.stack); }
+};
+const createSuppliersTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS suppliers (
+      id SERIAL PRIMARY KEY,
+      vendor_id VARCHAR(255) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      contact_person VARCHAR(255),
+      phone VARCHAR(20),
+      email VARCHAR(255),
+      address TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"suppliers" table is ready.'); } catch (err) { console.error('Error creating suppliers table', err.stack); }
 };
 const createBagItemsTable = async () => {
     const queryText = `
@@ -397,14 +416,15 @@ app.get('/api/vendor/products', async (req, res) => {
     }
 });
 app.post('/api/vendor/products', async (req, res) => {
-    const { name, description, price, weight, category, purity, image_url } = req.body;
-    // const randomImage = highQualityProducts[Math.floor(Math.random() * highQualityProducts.length)].imageUrl;
-    // Use provided image_url or fallback to null (or a default placeholder url if you have one hosted)
+    const { name, description, price, weight, category, purity, image_url, supplier_id, purchase_price } = req.body;
     const finalImage = image_url || null;
 
     if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
     try {
-        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [name, description, price, weight, category, purity, finalImage, true]);
+        const newProduct = await pool.query(
+            "INSERT INTO products (name, description, price, weight_grams, category, purity, image_url, in_stock, supplier_id, purchase_price) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *",
+            [name, description, price, weight, category, purity, finalImage, true, supplier_id || null, purchase_price || null]
+        );
         res.status(201).json({ message: 'Product created successfully', product: newProduct.rows[0] });
     } catch (err) {
         console.error(err.message);
@@ -414,15 +434,142 @@ app.post('/api/vendor/products', async (req, res) => {
 app.put('/api/vendor/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description, price, weight, category, purity } = req.body;
+        const { name, description, price, weight, category, purity, supplier_id, purchase_price } = req.body;
         console.log(`PUT /api/vendor/products/${id} - Updating database with data:`, req.body);
         if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
-        const updatedProduct = await pool.query("UPDATE products SET name = $1, description = $2, price = $3, weight_grams = $4, category = $5, purity = $6 WHERE id = $7 RETURNING *", [name, description, price, weight, category, purity, id]);
+        const updatedProduct = await pool.query(
+            "UPDATE products SET name = $1, description = $2, price = $3, weight_grams = $4, category = $5, purity = $6, supplier_id = $7, purchase_price = $8 WHERE id = $9 RETURNING *",
+            [name, description, price, weight, category, purity, supplier_id || null, purchase_price || null, id]
+        );
         if (updatedProduct.rows.length === 0) return res.status(404).json({ message: "Product not found." });
         res.status(200).json({ message: 'Product updated successfully', product: updatedProduct.rows[0] });
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: "Server error updating product." });
+    }
+});
+
+// --- SUPPLIER MANAGEMENT ROUTES ---
+// Get all suppliers for a vendor
+app.get('/api/vendor/suppliers', async (req, res) => {
+    try {
+        const { vendor_id } = req.query;
+        if (!vendor_id) return res.status(400).json({ message: "vendor_id is required" });
+
+        const suppliers = await pool.query(
+            "SELECT * FROM suppliers WHERE vendor_id = $1 ORDER BY created_at DESC",
+            [vendor_id]
+        );
+        res.status(200).json(suppliers.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching suppliers." });
+    }
+});
+
+// Create new supplier
+app.post('/api/vendor/suppliers', async (req, res) => {
+    try {
+        const { vendor_id, name, contact_person, phone, email, address } = req.body;
+        if (!vendor_id || !name) return res.status(400).json({ message: "vendor_id and name are required" });
+
+        const newSupplier = await pool.query(
+            "INSERT INTO suppliers (vendor_id, name, contact_person, phone, email, address) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+            [vendor_id, name, contact_person || null, phone || null, email || null, address || null]
+        );
+        res.status(201).json({ message: 'Supplier created successfully', supplier: newSupplier.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error creating supplier." });
+    }
+});
+
+// Update supplier
+app.put('/api/vendor/suppliers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, contact_person, phone, email, address } = req.body;
+        if (!name) return res.status(400).json({ message: "name is required" });
+
+        const updatedSupplier = await pool.query(
+            "UPDATE suppliers SET name = $1, contact_person = $2, phone = $3, email = $4, address = $5 WHERE id = $6 RETURNING *",
+            [name, contact_person || null, phone || null, email || null, address || null, id]
+        );
+        if (updatedSupplier.rows.length === 0) return res.status(404).json({ message: "Supplier not found." });
+        res.status(200).json({ message: 'Supplier updated successfully', supplier: updatedSupplier.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error updating supplier." });
+    }
+});
+
+// Delete supplier
+app.delete('/api/vendor/suppliers/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const deletedSupplier = await pool.query("DELETE FROM suppliers WHERE id = $1 RETURNING *", [id]);
+        if (deletedSupplier.rows.length === 0) return res.status(404).json({ message: "Supplier not found." });
+        res.status(200).json({ message: 'Supplier deleted successfully' });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error deleting supplier." });
+    }
+});
+
+// Publish/Unpublish product endpoints
+app.put('/api/vendor/products/:id/publish', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedProduct = await pool.query(
+            "UPDATE products SET is_published = TRUE, published_at = NOW() WHERE id = $1 RETURNING *",
+            [id]
+        );
+        if (updatedProduct.rows.length === 0) return res.status(404).json({ message: "Product not found." });
+        res.status(200).json({ message: 'Product published successfully', product: updatedProduct.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error publishing product." });
+    }
+});
+
+app.put('/api/vendor/products/:id/unpublish', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const updatedProduct = await pool.query(
+            "UPDATE products SET is_published = FALSE, published_at = NULL WHERE id = $1 RETURNING *",
+            [id]
+        );
+        if (updatedProduct.rows.length === 0) return res.status(404).json({ message: "Product not found." });
+        res.status(200).json({ message: 'Product unpublished successfully', product: updatedProduct.rows[0] });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error unpublishing product." });
+    }
+});
+
+// Public endpoint for customer app to get published products
+app.get('/api/products/published', async (req, res) => {
+    try {
+        const publishedProducts = await pool.query(
+            `SELECT 
+                p.id::text, 
+                p.name, 
+                p.description, 
+                p.price::float, 
+                p.weight_grams::float AS "weight", 
+                p.category, 
+                p.purity, 
+                p.image_url AS "imageUrl",
+                s.name AS "supplierName"
+            FROM products p
+            LEFT JOIN suppliers s ON p.supplier_id = s.id
+            WHERE p.is_published = TRUE AND p.in_stock = TRUE
+            ORDER BY p.published_at DESC`
+        );
+        res.status(200).json(publishedProducts.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).json({ message: "Server error fetching published products." });
     }
 });
 
@@ -1096,6 +1243,7 @@ app.listen(PORT, async () => {
     await createVendorsTable();
     await createUsersTable();
     await createProductsTable();
+    await createSuppliersTable();
     await createBagItemsTable();
     await createOrdersTable();
     await createOrderItemsTable();
