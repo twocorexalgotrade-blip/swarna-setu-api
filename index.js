@@ -375,7 +375,21 @@ app.post('/api/auth/user/login', async (req, res) => {
 app.get('/api/vendor/products', async (req, res) => {
     console.log('GET /api/vendor/products - Reading from database...');
     try {
-        const allProducts = await pool.query("SELECT id::text, name, price::float, image_url AS \"imageUrl\", in_stock AS \"inStock\" FROM products ORDER BY created_at DESC");
+        const allProducts = await pool.query(`
+            SELECT 
+                id::text, 
+                name, 
+                description, 
+                price::float, 
+                weight_grams::float AS "weight", 
+                category, 
+                purity, 
+                image_url AS "imageUrl", 
+                in_stock AS "inStock",
+                created_at
+            FROM products 
+            ORDER BY created_at DESC
+        `);
         res.status(200).json(allProducts.rows);
     } catch (err) {
         console.error(err.message);
@@ -661,9 +675,9 @@ app.get('/api/orders/user/:userId', async (req, res) => {
 // Start the server
 app.listen(PORT, async () => {
 
-// Create bills table
-const createBillsTable = async () => {
-    const queryText = `
+    // Create bills table
+    const createBillsTable = async () => {
+        const queryText = `
     CREATE TABLE IF NOT EXISTS vendor_bills (
       id SERIAL PRIMARY KEY,
       vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
@@ -675,129 +689,129 @@ const createBillsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-    try { 
-        await pool.query(queryText); 
-        console.log('"vendor_bills" table is ready.'); 
-    } catch (err) { 
-        console.error('Error creating vendor_bills table', err.stack); 
-    }
-};
+        try {
+            await pool.query(queryText);
+            console.log('"vendor_bills" table is ready.');
+        } catch (err) {
+            console.error('Error creating vendor_bills table', err.stack);
+        }
+    };
 
-// Create bill API
-app.post('/api/vendor/bills', async (req, res) => {
-    try {
-        const { vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url } = req.body;
-        
-        const result = await pool.query(
-            `INSERT INTO vendor_bills (vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url) 
+    // Create bill API
+    app.post('/api/vendor/bills', async (req, res) => {
+        try {
+            const { vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url } = req.body;
+
+            const result = await pool.query(
+                `INSERT INTO vendor_bills (vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url) 
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url]
-        );
-        
-        res.status(201).json({ success: true, bill: result.rows[0] });
-    } catch (error) {
-        console.error('Error creating bill:', error);
-        res.status(500).json({ error: 'Failed to create bill', details: error.message });
-    }
-});
+                [vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url]
+            );
 
-// Get all bills for vendor
-app.get('/api/vendor/bills/:vendorId', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const result = await pool.query(
-            `SELECT vb.*, vp.name as product_name 
+            res.status(201).json({ success: true, bill: result.rows[0] });
+        } catch (error) {
+            console.error('Error creating bill:', error);
+            res.status(500).json({ error: 'Failed to create bill', details: error.message });
+        }
+    });
+
+    // Get all bills for vendor
+    app.get('/api/vendor/bills/:vendorId', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+            const result = await pool.query(
+                `SELECT vb.*, vp.name as product_name 
              FROM vendor_bills vb
              LEFT JOIN vendor_products vp ON vb.product_id = vp.id
              WHERE vb.vendor_id = $1 
              ORDER BY vb.created_at DESC`,
-            [vendorId]
-        );
-        res.json({ success: true, bills: result.rows });
-    } catch (error) {
-        console.error('Error fetching bills:', error);
-        res.status(500).json({ error: 'Failed to fetch bills' });
-    }
-});
+                [vendorId]
+            );
+            res.json({ success: true, bills: result.rows });
+        } catch (error) {
+            console.error('Error fetching bills:', error);
+            res.status(500).json({ error: 'Failed to fetch bills' });
+        }
+    });
 
-// ===== ADVANCED ANALYTICS APIS =====
+    // ===== ADVANCED ANALYTICS APIS =====
 
-// Sales by period
-app.get('/api/vendor/analytics/:vendorId/sales', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const { period } = req.query; // daily, weekly, monthly, yearly
-        
-        // For now, return mock data - would need actual sales/orders table
-        const mockData = {
-            daily: [
-                { date: '2025-12-23', sales: 45000, orders: 3 },
-                { date: '2025-12-24', sales: 67000, orders: 5 },
-                { date: '2025-12-25', sales: 89000, orders: 7 },
-                { date: '2025-12-26', sales: 52000, orders: 4 },
-                { date: '2025-12-27', sales: 78000, orders: 6 },
-                { date: '2025-12-28', sales: 95000, orders: 8 },
-                { date: '2025-12-29', sales: 112000, orders: 9 },
-            ],
-            weekly: [
-                { week: 'Week 1', sales: 250000, orders: 18 },
-                { week: 'Week 2', sales: 320000, orders: 24 },
-                { week: 'Week 3', sales: 280000, orders: 21 },
-                { week: 'Week 4', sales: 450000, orders: 32 },
-            ],
-            monthly: [
-                { month: 'Jan', sales: 850000, orders: 65 },
-                { month: 'Feb', sales: 920000, orders: 72 },
-                { month: 'Mar', sales: 1100000, orders: 85 },
-                { month: 'Apr', sales: 980000, orders: 78 },
-            ],
-        };
-        
-        res.json({ success: true, data: mockData[period] || mockData.daily });
-    } catch (error) {
-        console.error('Error fetching sales data:', error);
-        res.status(500).json({ error: 'Failed to fetch sales data' });
-    }
-});
+    // Sales by period
+    app.get('/api/vendor/analytics/:vendorId/sales', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+            const { period } = req.query; // daily, weekly, monthly, yearly
 
-// Trends analysis
-app.get('/api/vendor/analytics/:vendorId/trends', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        
-        const categoryTrends = await pool.query(`
+            // For now, return mock data - would need actual sales/orders table
+            const mockData = {
+                daily: [
+                    { date: '2025-12-23', sales: 45000, orders: 3 },
+                    { date: '2025-12-24', sales: 67000, orders: 5 },
+                    { date: '2025-12-25', sales: 89000, orders: 7 },
+                    { date: '2025-12-26', sales: 52000, orders: 4 },
+                    { date: '2025-12-27', sales: 78000, orders: 6 },
+                    { date: '2025-12-28', sales: 95000, orders: 8 },
+                    { date: '2025-12-29', sales: 112000, orders: 9 },
+                ],
+                weekly: [
+                    { week: 'Week 1', sales: 250000, orders: 18 },
+                    { week: 'Week 2', sales: 320000, orders: 24 },
+                    { week: 'Week 3', sales: 280000, orders: 21 },
+                    { week: 'Week 4', sales: 450000, orders: 32 },
+                ],
+                monthly: [
+                    { month: 'Jan', sales: 850000, orders: 65 },
+                    { month: 'Feb', sales: 920000, orders: 72 },
+                    { month: 'Mar', sales: 1100000, orders: 85 },
+                    { month: 'Apr', sales: 980000, orders: 78 },
+                ],
+            };
+
+            res.json({ success: true, data: mockData[period] || mockData.daily });
+        } catch (error) {
+            console.error('Error fetching sales data:', error);
+            res.status(500).json({ error: 'Failed to fetch sales data' });
+        }
+    });
+
+    // Trends analysis
+    app.get('/api/vendor/analytics/:vendorId/trends', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+
+            const categoryTrends = await pool.query(`
             SELECT category, COUNT(*) as count, SUM(stock_quantity) as total_stock
             FROM vendor_products 
             WHERE vendor_id = $1 
             GROUP BY category 
             ORDER BY count DESC
         `, [vendorId]);
-        
-        const purityTrends = await pool.query(`
+
+            const purityTrends = await pool.query(`
             SELECT purity, COUNT(*) as count 
             FROM vendor_products 
             WHERE vendor_id = $1 AND purity IS NOT NULL
             GROUP BY purity 
             ORDER BY count DESC
         `, [vendorId]);
-        
-        res.json({
-            success: true,
-            categoryTrends: categoryTrends.rows,
-            purityTrends: purityTrends.rows,
-        });
-    } catch (error) {
-        console.error('Error fetching trends:', error);
-        res.status(500).json({ error: 'Failed to fetch trends' });
-    }
-});
 
-// Price bracket analysis
-app.get('/api/vendor/analytics/:vendorId/price-brackets', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        
-        const result = await pool.query(`
+            res.json({
+                success: true,
+                categoryTrends: categoryTrends.rows,
+                purityTrends: purityTrends.rows,
+            });
+        } catch (error) {
+            console.error('Error fetching trends:', error);
+            res.status(500).json({ error: 'Failed to fetch trends' });
+        }
+    });
+
+    // Price bracket analysis
+    app.get('/api/vendor/analytics/:vendorId/price-brackets', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+
+            const result = await pool.query(`
             SELECT 
                 CASE 
                     WHEN final_price < 20000 THEN 'Under ₹20K'
@@ -812,22 +826,22 @@ app.get('/api/vendor/analytics/:vendorId/price-brackets', async (req, res) => {
             GROUP BY bracket
             ORDER BY MIN(final_price)
         `, [vendorId]);
-        
-        res.json({ success: true, data: result.rows });
-    } catch (error) {
-        console.error('Error fetching price brackets:', error);
-        res.status(500).json({ error: 'Failed to fetch price brackets' });
-    }
-});
 
-// Top sellers
-app.get('/api/vendor/analytics/:vendorId/top-sellers', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        
-        // Get products sorted by stock quantity (assuming lower stock = more sold)
-        // In real app, would track actual sales
-        const result = await pool.query(`
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('Error fetching price brackets:', error);
+            res.status(500).json({ error: 'Failed to fetch price brackets' });
+        }
+    });
+
+    // Top sellers
+    app.get('/api/vendor/analytics/:vendorId/top-sellers', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+
+            // Get products sorted by stock quantity (assuming lower stock = more sold)
+            // In real app, would track actual sales
+            const result = await pool.query(`
             SELECT id, name, category, purity, final_price, stock_quantity,
                    (product_quantity_limit - stock_quantity) as sold_count
             FROM vendor_products vp
@@ -836,20 +850,20 @@ app.get('/api/vendor/analytics/:vendorId/top-sellers', async (req, res) => {
             ORDER BY sold_count DESC
             LIMIT 5
         `, [vendorId]);
-        
-        res.json({ success: true, topSellers: result.rows });
-    } catch (error) {
-        console.error('Error fetching top sellers:', error);
-        res.status(500).json({ error: 'Failed to fetch top sellers' });
-    }
-});
 
-// Dead stock (items not sold in 60+ days)
-app.get('/api/vendor/analytics/:vendorId/dead-stock', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        
-        const result = await pool.query(`
+            res.json({ success: true, topSellers: result.rows });
+        } catch (error) {
+            console.error('Error fetching top sellers:', error);
+            res.status(500).json({ error: 'Failed to fetch top sellers' });
+        }
+    });
+
+    // Dead stock (items not sold in 60+ days)
+    app.get('/api/vendor/analytics/:vendorId/dead-stock', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+
+            const result = await pool.query(`
             SELECT id, name, category, purity, final_price, stock_quantity, created_at,
                    EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at)) as days_old
             FROM vendor_products
@@ -858,20 +872,20 @@ app.get('/api/vendor/analytics/:vendorId/dead-stock', async (req, res) => {
               AND created_at < CURRENT_TIMESTAMP - INTERVAL '60 days'
             ORDER BY created_at ASC
         `, [vendorId]);
-        
-        res.json({ success: true, deadStock: result.rows });
-    } catch (error) {
-        console.error('Error fetching dead stock:', error);
-        res.status(500).json({ error: 'Failed to fetch dead stock' });
-    }
-});
 
-// Category contribution
-app.get('/api/vendor/analytics/:vendorId/category-contribution', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        
-        const result = await pool.query(`
+            res.json({ success: true, deadStock: result.rows });
+        } catch (error) {
+            console.error('Error fetching dead stock:', error);
+            res.status(500).json({ error: 'Failed to fetch dead stock' });
+        }
+    });
+
+    // Category contribution
+    app.get('/api/vendor/analytics/:vendorId/category-contribution', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+
+            const result = await pool.query(`
             SELECT 
                 category,
                 COUNT(*) as product_count,
@@ -882,199 +896,199 @@ app.get('/api/vendor/analytics/:vendorId/category-contribution', async (req, res
             GROUP BY category
             ORDER BY total_value DESC
         `, [vendorId]);
-        
-        res.json({ success: true, data: result.rows });
-    } catch (error) {
-        console.error('Error fetching category contribution:', error);
-        res.status(500).json({ error: 'Failed to fetch category contribution' });
-    }
-});
 
-// Update shop details
-app.put('/api/vendor/shop/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { shop_name, shop_address, logo_url, banner_url } = req.body;
-        
-        const result = await pool.query(
-            `UPDATE shops 
+            res.json({ success: true, data: result.rows });
+        } catch (error) {
+            console.error('Error fetching category contribution:', error);
+            res.status(500).json({ error: 'Failed to fetch category contribution' });
+        }
+    });
+
+    // Update shop details
+    app.put('/api/vendor/shop/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { shop_name, shop_address, logo_url, banner_url } = req.body;
+
+            const result = await pool.query(
+                `UPDATE shops 
              SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
              WHERE id = $5 RETURNING *`,
-            [shop_name, shop_address, logo_url, banner_url, id]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Shop not found' });
-        }
-        
-        res.json({ success: true, shop: result.rows[0] });
-    } catch (error) {
-        console.error('Error updating shop:', error);
-        res.status(500).json({ error: 'Failed to update shop' });
-    }
-});
+                [shop_name, shop_address, logo_url, banner_url, id]
+            );
 
-// Update shop by vendor_id
-app.put('/api/vendor/shop/by-vendor/:vendorId', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const { shop_name, shop_address, logo_url, banner_url } = req.body;
-        
-        const result = await pool.query(
-            `UPDATE shops 
-             SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Shop not found' });
+            }
+
+            res.json({ success: true, shop: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating shop:', error);
+            res.status(500).json({ error: 'Failed to update shop' });
+        }
+    });
+
+    // Update shop by vendor_id
+    app.put('/api/vendor/shop/by-vendor/:vendorId', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+            const { shop_name, shop_address, logo_url, banner_url } = req.body;
+
+            const result = await pool.query(
+                `UPDATE shops 
+             SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4
              WHERE vendor_id = $5 RETURNING *`,
-            [shop_name, shop_address, logo_url, banner_url, vendorId]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Shop not found' });
-        }
-        
-        res.json({ success: true, shop: result.rows[0] });
-    } catch (error) {
-        console.error('Error updating shop:', error);
-        res.status(500).json({ error: 'Failed to update shop' });
-    }
-});
+                [shop_name, shop_address, logo_url, banner_url, vendorId]
+            );
 
-// Create/Update banner customization
-app.post('/api/vendor/shop/:vendorId/banner', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const { banner_type, banner_url } = req.body;
-        
-        // For now, just update the shop's banner_url
-        const result = await pool.query(
-            `UPDATE shops 
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Shop not found' });
+            }
+
+            res.json({ success: true, shop: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating shop:', error);
+            res.status(500).json({ error: 'Failed to update shop' });
+        }
+    });
+
+    // Create/Update banner customization
+    app.post('/api/vendor/shop/:vendorId/banner', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+            const { banner_type, banner_url } = req.body;
+
+            // For now, just update the shop's banner_url
+            const result = await pool.query(
+                `UPDATE shops 
              SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
              WHERE vendor_id = $2 RETURNING *`,
-            [banner_url, vendorId]
-        );
-        
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Shop not found' });
+                [banner_url, vendorId]
+            );
+
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Shop not found' });
+            }
+
+            res.json({ success: true, shop: result.rows[0] });
+        } catch (error) {
+            console.error('Error updating banner:', error);
+            res.status(500).json({ error: 'Failed to update banner' });
         }
-        
-        res.json({ success: true, shop: result.rows[0] });
-    } catch (error) {
-        console.error('Error updating banner:', error);
-        res.status(500).json({ error: 'Failed to update banner' });
-    }
-});
+    });
 
-// ===== ADMIN SHOP MANAGEMENT APIS =====
+    // ===== ADMIN SHOP MANAGEMENT APIS =====
 
-// Create new shop
-app.post('/api/admin/shops', async (req, res) => {
-    try {
-        const { shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id, password } = req.body;
-        
-        // Hash the password
-        const hashedPassword = await bcrypt.hash(password, 10);
-        
-        // Insert shop
-        const shopResult = await pool.query(
-            'INSERT INTO shops (shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-            [shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id]
-        );
-        
-        // Insert vendor credentials
-        await pool.query(
-            'INSERT INTO vendor_credentials (vendor_id, password) VALUES ($1, $2)',
-            [vendor_id, hashedPassword]
-        );
-        
-        res.status(201).json({ success: true, shop: shopResult.rows[0] });
-    } catch (error) {
-        console.error('Error creating shop:', error);
-        res.status(500).json({ error: 'Failed to create shop', details: error.message });
-    }
-});
+    // Create new shop
+    app.post('/api/admin/shops', async (req, res) => {
+        try {
+            const { shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id, password } = req.body;
 
-// Get all shops
-app.get('/api/admin/shops', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT * FROM shops ORDER BY created_at DESC');
-        res.json({ success: true, shops: result.rows });
-    } catch (error) {
-        console.error('Error fetching shops:', error);
-        res.status(500).json({ error: 'Failed to fetch shops' });
-    }
-});
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(password, 10);
 
-// Get shop by ID
-app.get('/api/admin/shops/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const result = await pool.query('SELECT * FROM shops WHERE id = $1', [id]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Shop not found' });
+            // Insert shop
+            const shopResult = await pool.query(
+                'INSERT INTO shops (shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+                [shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id]
+            );
+
+            // Insert vendor credentials
+            await pool.query(
+                'INSERT INTO vendor_credentials (vendor_id, password) VALUES ($1, $2)',
+                [vendor_id, hashedPassword]
+            );
+
+            res.status(201).json({ success: true, shop: shopResult.rows[0] });
+        } catch (error) {
+            console.error('Error creating shop:', error);
+            res.status(500).json({ error: 'Failed to create shop', details: error.message });
         }
-        res.json({ success: true, shop: result.rows[0] });
-    } catch (error) {
-        console.error('Error fetching shop:', error);
-        res.status(500).json({ error: 'Failed to fetch shop' });
-    }
-});
+    });
 
-// ===== VENDOR AUTHENTICATION APIS =====
+    // Get all shops
+    app.get('/api/admin/shops', async (req, res) => {
+        try {
+            const result = await pool.query('SELECT * FROM shops ORDER BY created_at DESC');
+            res.json({ success: true, shops: result.rows });
+        } catch (error) {
+            console.error('Error fetching shops:', error);
+            res.status(500).json({ error: 'Failed to fetch shops' });
+        }
+    });
 
-// Vendor login
-app.post('/api/vendor/login', async (req, res) => {
-    try {
-        const { vendor_id, password } = req.body;
-        
-        // Get vendor credentials
-        const credResult = await pool.query(
-            'SELECT * FROM vendor_credentials WHERE vendor_id = $1',
-            [vendor_id]
-        );
-        
-        if (credResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid credentials' });
+    // Get shop by ID
+    app.get('/api/admin/shops/:id', async (req, res) => {
+        try {
+            const { id } = req.params;
+            const result = await pool.query('SELECT * FROM shops WHERE id = $1', [id]);
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Shop not found' });
+            }
+            res.json({ success: true, shop: result.rows[0] });
+        } catch (error) {
+            console.error('Error fetching shop:', error);
+            res.status(500).json({ error: 'Failed to fetch shop' });
         }
-        
-        // Verify password
-        const isValid = await bcrypt.compare(password, credResult.rows[0].password);
-        if (!isValid) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
-        
-        // Get shop details
-        const shopResult = await pool.query(
-            'SELECT * FROM shops WHERE vendor_id = $1',
-            [vendor_id]
-        );
-        
-        // Generate token (simple version, in production use proper JWT)
-        const token = jwt.sign({ vendor_id, shop_id: shopResult.rows[0].id }, 'your-secret-key', { expiresIn: '7d' });
-        
-        res.json({ 
-            success: true, 
-            token,
-            shop: shopResult.rows[0]
-        });
-    } catch (error) {
-        console.error('Error during vendor login:', error);
-        res.status(500).json({ error: 'Login failed' });
-    }
-});
+    });
 
-// Get vendor shop details
-app.get('/api/vendor/shop/:vendorId', async (req, res) => {
-    try {
-        const { vendorId } = req.params;
-        const result = await pool.query('SELECT * FROM shops WHERE vendor_id = $1', [vendorId]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Shop not found' });
+    // ===== VENDOR AUTHENTICATION APIS =====
+
+    // Vendor login
+    app.post('/api/vendor/login', async (req, res) => {
+        try {
+            const { vendor_id, password } = req.body;
+
+            // Get vendor credentials
+            const credResult = await pool.query(
+                'SELECT * FROM vendor_credentials WHERE vendor_id = $1',
+                [vendor_id]
+            );
+
+            if (credResult.rows.length === 0) {
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+
+            // Verify password
+            const isValid = await bcrypt.compare(password, credResult.rows[0].password);
+            if (!isValid) {
+                return res.status(401).json({ error: 'Invalid credentials' });
+            }
+
+            // Get shop details
+            const shopResult = await pool.query(
+                'SELECT * FROM shops WHERE vendor_id = $1',
+                [vendor_id]
+            );
+
+            // Generate token (simple version, in production use proper JWT)
+            const token = jwt.sign({ vendor_id, shop_id: shopResult.rows[0].id }, 'your-secret-key', { expiresIn: '7d' });
+
+            res.json({
+                success: true,
+                token,
+                shop: shopResult.rows[0]
+            });
+        } catch (error) {
+            console.error('Error during vendor login:', error);
+            res.status(500).json({ error: 'Login failed' });
         }
-        res.json({ success: true, shop: result.rows[0] });
-    } catch (error) {
-        console.error('Error fetching vendor shop:', error);
-        res.status(500).json({ error: 'Failed to fetch shop' });
-    }
-});
+    });
+
+    // Get vendor shop details
+    app.get('/api/vendor/shop/:vendorId', async (req, res) => {
+        try {
+            const { vendorId } = req.params;
+            const result = await pool.query('SELECT * FROM shops WHERE vendor_id = $1', [vendorId]);
+            if (result.rows.length === 0) {
+                return res.status(404).json({ error: 'Shop not found' });
+            }
+            res.json({ success: true, shop: result.rows[0] });
+        } catch (error) {
+            console.error('Error fetching vendor shop:', error);
+            res.status(500).json({ error: 'Failed to fetch shop' });
+        }
+    });
     console.log(`Server is running on port ${PORT}`);
     await createVendorsTable();
     await createUsersTable();
@@ -1084,7 +1098,8 @@ app.get('/api/vendor/shop/:vendorId', async (req, res) => {
     await createOrderItemsTable();
     await createAddressesTable();
     await createShopsTable();
-    await createVendorCredentialsTable();    await performMigrations(); // Run migrations specifically for mobile_number
+    await createVendorCredentialsTable(); await performMigrations(); // Run migrations specifically for mobile_number
     await createProductsTable();
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
-    await createBillsTable();});
+    await createBillsTable();
+});
