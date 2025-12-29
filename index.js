@@ -69,7 +69,7 @@ const createProductsTable = async () => {
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-    
+
     // Create old products table for backward compatibility
     const oldProductsQuery = `
     CREATE TABLE IF NOT EXISTS products (
@@ -85,11 +85,11 @@ const createProductsTable = async () => {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-    
-    try { 
-        await pool.query(vendorProductsQuery); 
+
+    try {
+        await pool.query(vendorProductsQuery);
         console.log('"vendor_products" table is ready.');
-        
+
         // Add new columns if they don't exist (migration)
         await pool.query(`
             ALTER TABLE vendor_products 
@@ -101,97 +101,120 @@ const createProductsTable = async () => {
             ADD COLUMN IF NOT EXISTS image_urls TEXT[];
         `);
         console.log('vendor_products table migrations applied.');
-        
+
         await pool.query(oldProductsQuery);
         console.log('"products" table is ready.');
-    } catch (err) { 
-        console.error('Error creating products tables', err.stack); 
+    } catch (err) {
+        console.error('Error creating products tables', err.stack);
     }
 };
+
+try {
+    await pool.query(vendorProductsQuery);
+    console.log('"vendor_products" table is ready.');
+
+    // Add new columns if they don't exist (migration)
+    await pool.query(`
+            ALTER TABLE vendor_products 
+            ADD COLUMN IF NOT EXISTS stock_status VARCHAR(50) DEFAULT 'Available',
+            ADD COLUMN IF NOT EXISTS gold_cost NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS gem_cost NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS markup NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS final_price NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS image_urls TEXT[];
+        `);
+    console.log('vendor_products table migrations applied.');
+
+    await pool.query(oldProductsQuery);
+    console.log('"products" table is ready.');
+} catch (err) {
+    console.error('Error creating products tables', err.stack);
+}
+};
       product_id TEXT NOT NULL,
-      product_name VARCHAR(255) NOT NULL,
-      product_image_url VARCHAR(255),
-      vendor_name VARCHAR(255),
-      price NUMERIC(10, 2) NOT NULL,
-      added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    product_name VARCHAR(255) NOT NULL,
+        product_image_url VARCHAR(255),
+            vendor_name VARCHAR(255),
+                price NUMERIC(10, 2) NOT NULL,
+                    added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
-  `;
+`;
     try { await pool.query(queryText); console.log('"bag_items" table is ready.'); } catch (err) { console.error('Error creating bag_items table', err.stack); }
 };
 const createOrdersTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS orders (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      total_amount NUMERIC(10, 2) NOT NULL,
-      status VARCHAR(50) NOT NULL, -- 'Pending', 'Confirmed', 'Delivered', 'Cancelled'
+    CREATE TABLE IF NOT EXISTS orders(
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    total_amount NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- 'Pending', 'Confirmed', 'Delivered', 'Cancelled'
       fulfillment_method VARCHAR(50), -- 'Home Delivery', 'Store Pickup'
       payment_id VARCHAR(100),
-      delivery_address TEXT,
-      pickup_store TEXT,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+    delivery_address TEXT,
+    pickup_store TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
     try { await pool.query(queryText); console.log('"orders" table is ready.'); } catch (err) { console.error('Error creating orders table', err.stack); }
 };
 const createOrderItemsTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS order_items (
-      id SERIAL PRIMARY KEY,
-      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-      product_id TEXT NOT NULL,
-      product_name VARCHAR(255) NOT NULL,
-      vendor_name VARCHAR(255),
-      product_image_url VARCHAR(255),
-      price NUMERIC(10, 2) NOT NULL,
-      quantity INTEGER DEFAULT 1
-    );
-  `;
+    CREATE TABLE IF NOT EXISTS order_items(
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    product_id TEXT NOT NULL,
+    product_name VARCHAR(255) NOT NULL,
+    vendor_name VARCHAR(255),
+    product_image_url VARCHAR(255),
+    price NUMERIC(10, 2) NOT NULL,
+    quantity INTEGER DEFAULT 1
+);
+`;
     try { await pool.query(queryText); console.log('"order_items" table is ready.'); } catch (err) { console.error('Error creating order_items table', err.stack); }
 };
 const createAddressesTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS addresses (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      name VARCHAR(255) NOT NULL,
-      line1 TEXT NOT NULL,
-      line2 TEXT,
-      city VARCHAR(100) NOT NULL,
-      zip VARCHAR(20) NOT NULL,
-      mobile VARCHAR(20) NOT NULL,
-      is_default BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+    CREATE TABLE IF NOT EXISTS addresses(
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    line1 TEXT NOT NULL,
+    line2 TEXT,
+    city VARCHAR(100) NOT NULL,
+    zip VARCHAR(20) NOT NULL,
+    mobile VARCHAR(20) NOT NULL,
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
     try { await pool.query(queryText); console.log('"addresses" table is ready.'); } catch (err) { console.error('Error creating addresses table', err.stack); }
 };
 
 const createShopsTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS shops (
-      id SERIAL PRIMARY KEY,
-      shop_name VARCHAR(255) NOT NULL,
-      shop_address TEXT NOT NULL,
-      logo_url TEXT,
-      banner_url TEXT,
-      product_quantity_limit INTEGER DEFAULT 100,
-      vendor_id VARCHAR(100) UNIQUE NOT NULL,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+    CREATE TABLE IF NOT EXISTS shops(
+    id SERIAL PRIMARY KEY,
+    shop_name VARCHAR(255) NOT NULL,
+    shop_address TEXT NOT NULL,
+    logo_url TEXT,
+    banner_url TEXT,
+    product_quantity_limit INTEGER DEFAULT 100,
+    vendor_id VARCHAR(100) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
     try { await pool.query(queryText); console.log('"shops" table is ready.'); } catch (err) { console.error('Error creating shops table', err.stack); }
 };
 
 const createVendorCredentialsTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS vendor_credentials (
-      id SERIAL PRIMARY KEY,
-      vendor_id VARCHAR(100) UNIQUE NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
-      password VARCHAR(255) NOT NULL,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
-  `;
+    CREATE TABLE IF NOT EXISTS vendor_credentials(
+    id SERIAL PRIMARY KEY,
+    vendor_id VARCHAR(100) UNIQUE NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
     try { await pool.query(queryText); console.log('"vendor_credentials" table is ready.'); } catch (err) { console.error('Error creating vendor_credentials table', err.stack); }
 };
 
@@ -205,28 +228,28 @@ const performMigrations = async () => {
     try {
         // Add mobile_number column if not exists
         await pool.query(`
-            DO $$ 
-            BEGIN 
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='mobile_number') THEN 
+            DO $$
+BEGIN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'mobile_number') THEN 
                     ALTER TABLE users ADD COLUMN mobile_number VARCHAR(15) UNIQUE; 
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='first_name') THEN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'first_name') THEN 
                     ALTER TABLE users ADD COLUMN first_name VARCHAR(255); 
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_name') THEN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_name') THEN 
                     ALTER TABLE users ADD COLUMN last_name VARCHAR(255); 
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='title') THEN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'title') THEN 
                     ALTER TABLE users ADD COLUMN title VARCHAR(50); 
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='dob') THEN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'dob') THEN 
                     ALTER TABLE users ADD COLUMN dob VARCHAR(50); 
                 END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='gender') THEN 
+                IF NOT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'gender') THEN 
                     ALTER TABLE users ADD COLUMN gender VARCHAR(50); 
                 END IF;
             END $$;
-        `);
+`);
         // Make email/password nullable if we are shifting to Mobile-first (Optional step, keeping simple for now)
         // For now, we will handle 'complete-profile' by updating or inserting.
         console.log("Database migrations checked/performed.");
@@ -321,23 +344,23 @@ app.post('/api/user/complete-profile', async (req, res) => {
             const updateQuery = `
                 UPDATE users 
                 SET name = $1, first_name = $2, last_name = $3, title = $4, dob = $5, gender = $6, created_at = CURRENT_TIMESTAMP 
-                WHERE mobile_number = $7 
-                RETURNING *
-            `;
-            user = await pool.query(updateQuery, [`${firstName} ${lastName}`, firstName, lastName, title, dob, gender, mobileNumber]);
+                WHERE mobile_number = $7
+RETURNING *
+    `;
+            user = await pool.query(updateQuery, [`${ firstName } ${ lastName } `, firstName, lastName, title, dob, gender, mobileNumber]);
         } else {
             // Insert new
             // Note: Email/Password are NOT NULL in original schema. We might need to dummy them or make them nullable.
             // For now, let's insert a dummy email/password if they are required constraints.
-            const dummyEmail = `${mobileNumber}@swarnasetu.com`; // Unique placeholder
+            const dummyEmail = `${ mobileNumber } @swarnasetu.com`; // Unique placeholder
             const dummyPass = await bcrypt.hash('otp-login', 10);
 
             const insertQuery = `
-                INSERT INTO users (name, mobile_number, email, password, first_name, last_name, title, dob, gender) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-                RETURNING *
-            `;
-            user = await pool.query(insertQuery, [`${firstName} ${lastName}`, mobileNumber, dummyEmail, dummyPass, firstName, lastName, title, dob, gender]);
+                INSERT INTO users(name, mobile_number, email, password, first_name, last_name, title, dob, gender)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING *
+    `;
+            user = await pool.query(insertQuery, [`${ firstName } ${ lastName } `, mobileNumber, dummyEmail, dummyPass, firstName, lastName, title, dob, gender]);
         }
         res.json({ success: true, user: user.rows[0] });
     } catch (err) {
@@ -444,7 +467,7 @@ app.put('/api/vendor/products/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { name, description, price, weight, category, purity } = req.body;
-        console.log(`PUT /api/vendor/products/${id} - Updating database with data:`, req.body);
+        console.log(`PUT / api / vendor / products / ${ id } - Updating database with data: `, req.body);
         if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
         const updatedProduct = await pool.query("UPDATE products SET name = $1, description = $2, price = $3, weight_grams = $4, category = $5, purity = $6 WHERE id = $7 RETURNING *", [name, description, price, weight, category, purity, id]);
         if (updatedProduct.rows.length === 0) return res.status(404).json({ message: "Product not found." });
@@ -491,7 +514,7 @@ app.get('/api/gold-rate', async (req, res) => {
                 "timestamp": new Date().toISOString(),
                 "source": "International Live Rate (+Duty)"
             };
-            console.log(`Rates (Calibrated) -> AM: ₹${amRate}, PM: ₹${pmRate}`);
+            console.log(`Rates(Calibrated) -> AM: ₹${ amRate }, PM: ₹${ pmRate } `);
             return res.status(200).json(liveRate);
         } else {
             throw new Error("Invalid data format from API");
@@ -516,7 +539,7 @@ app.get('/api/trending', (req, res) => {
 });
 app.get('/api/top-jewellers', (req, res) => {
     const { lat, lon, radius } = req.query;
-    console.log(`GET /api/top-jewellers - Request received for lat: ${lat}, lon: ${lon}, radius: ${radius}km`);
+    console.log(`GET / api / top - jewellers - Request received for lat: ${ lat }, lon: ${ lon }, radius: ${ radius } km`);
     res.status(200).json(topJewellers);
 });
 app.get('/api/products/featured', (req, res) => {
@@ -527,7 +550,7 @@ app.get('/api/products/featured', (req, res) => {
 // GET a single product by its ID
 app.get('/api/products/:id', (req, res) => {
     const { id } = req.params;
-    console.log(`GET /api/products/${id} - Request received`);
+    console.log(`GET / api / products / ${ id } - Request received`);
     const product = highQualityProducts.find(p => p.id === id);
     if (product) {
         res.status(200).json(product);
@@ -562,10 +585,10 @@ app.post('/api/addresses', async (req, res) => {
         }
 
         const insertQuery = `
-            INSERT INTO addresses (user_id, name, line1, line2, city, zip, mobile, is_default)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            RETURNING *
-        `;
+            INSERT INTO addresses(user_id, name, line1, line2, city, zip, mobile, is_default)
+VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING *
+    `;
         const result = await client.query(insertQuery, [userId, name, line1, line2, city, zip, mobile, isDefault || false]);
 
         await client.query('COMMIT');
@@ -593,7 +616,7 @@ app.delete('/api/addresses/:id', async (req, res) => {
 // --- BAG / CART ROUTES ---
 app.get('/api/bag/:userId', async (req, res) => {
     const { userId } = req.params;
-    console.log(`GET /api/bag for user: ${userId}`);
+    console.log(`GET / api / bag for user: ${ userId } `);
     try {
         const bagItems = await pool.query("SELECT * FROM bag_items WHERE user_id = $1 ORDER BY added_at DESC", [userId]);
         res.status(200).json(bagItems.rows);
@@ -616,7 +639,7 @@ app.post('/api/bag', async (req, res) => {
 });
 app.delete('/api/bag/:itemId', async (req, res) => {
     const { itemId } = req.params;
-    console.log(`DELETE /api/bag/${itemId}`);
+    console.log(`DELETE / api / bag / ${ itemId } `);
     try {
         const deleteOp = await pool.query("DELETE FROM bag_items WHERE id = $1 RETURNING *", [itemId]);
         if (deleteOp.rowCount === 0) return res.status(404).json({ message: "Item not found in bag." });
@@ -642,19 +665,19 @@ app.post('/api/orders', async (req, res) => {
 
         // 1. Create Order
         const orderQuery = `
-            INSERT INTO orders (user_id, total_amount, status, fulfillment_method, delivery_address, pickup_store, payment_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *
-        `;
+            INSERT INTO orders(user_id, total_amount, status, fulfillment_method, delivery_address, pickup_store, payment_id)
+VALUES($1, $2, $3, $4, $5, $6, $7)
+RETURNING *
+    `;
         const orderValues = [userId, totalAmount, status || 'Confirmed', fulfillmentMethod, deliveryAddress, pickupStore, paymentId];
         const orderResult = await client.query(orderQuery, orderValues);
         const newOrder = orderResult.rows[0];
 
         // 2. Insert Order Items
         const itemQuery = `
-            INSERT INTO order_items (order_id, product_id, product_name, vendor_name, product_image_url, price, quantity)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-        `;
+            INSERT INTO order_items(order_id, product_id, product_name, vendor_name, product_image_url, price, quantity)
+VALUES($1, $2, $3, $4, $5, $6, $7)
+    `;
         for (const item of items) {
             await client.query(itemQuery, [
                 newOrder.id,
@@ -710,17 +733,17 @@ app.listen(PORT, async () => {
 // Create bills table
 const createBillsTable = async () => {
     const queryText = `
-    CREATE TABLE IF NOT EXISTS vendor_bills (
-      id SERIAL PRIMARY KEY,
-      vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
-      product_id INTEGER REFERENCES vendor_products(id),
-      customer_name VARCHAR(255) NOT NULL,
-      customer_phone VARCHAR(20) NOT NULL,
-      total_amount NUMERIC(10, 2) NOT NULL,
-      bill_pdf_url TEXT,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE IF NOT EXISTS vendor_bills(
+        id SERIAL PRIMARY KEY,
+        vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES vendor_products(id),
+        customer_name VARCHAR(255) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        total_amount NUMERIC(10, 2) NOT NULL,
+        bill_pdf_url TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
-  `;
+`;
     try { 
         await pool.query(queryText); 
         console.log('"vendor_bills" table is ready.'); 
@@ -735,8 +758,8 @@ app.post('/api/vendor/bills', async (req, res) => {
         const { vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url } = req.body;
         
         const result = await pool.query(
-            `INSERT INTO vendor_bills (vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            `INSERT INTO vendor_bills(vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url)
+VALUES($1, $2, $3, $4, $5, $6) RETURNING * `,
             [vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url]
         );
         
@@ -817,7 +840,7 @@ app.get('/api/vendor/analytics/:vendorId/trends', async (req, res) => {
             WHERE vendor_id = $1 
             GROUP BY category 
             ORDER BY count DESC
-        `, [vendorId]);
+    `, [vendorId]);
         
         const purityTrends = await pool.query(`
             SELECT purity, COUNT(*) as count 
@@ -825,7 +848,7 @@ app.get('/api/vendor/analytics/:vendorId/trends', async (req, res) => {
             WHERE vendor_id = $1 AND purity IS NOT NULL
             GROUP BY purity 
             ORDER BY count DESC
-        `, [vendorId]);
+    `, [vendorId]);
         
         res.json({
             success: true,
@@ -844,20 +867,20 @@ app.get('/api/vendor/analytics/:vendorId/price-brackets', async (req, res) => {
         const { vendorId } = req.params;
         
         const result = await pool.query(`
-            SELECT 
-                CASE 
+SELECT
+CASE 
                     WHEN final_price < 20000 THEN 'Under ₹20K'
                     WHEN final_price >= 20000 AND final_price < 50000 THEN '₹20K-₹50K'
                     WHEN final_price >= 50000 AND final_price < 100000 THEN '₹50K-₹1L'
                     WHEN final_price >= 100000 THEN 'Above ₹1L'
                     ELSE 'No Price'
-                END as bracket,
-                COUNT(*) as count
+END as bracket,
+    COUNT(*) as count
             FROM vendor_products
             WHERE vendor_id = $1
             GROUP BY bracket
             ORDER BY MIN(final_price)
-        `, [vendorId]);
+    `, [vendorId]);
         
         res.json({ success: true, data: result.rows });
     } catch (error) {
@@ -875,13 +898,13 @@ app.get('/api/vendor/analytics/:vendorId/top-sellers', async (req, res) => {
         // In real app, would track actual sales
         const result = await pool.query(`
             SELECT id, name, category, purity, final_price, stock_quantity,
-                   (product_quantity_limit - stock_quantity) as sold_count
+    (product_quantity_limit - stock_quantity) as sold_count
             FROM vendor_products vp
             JOIN shops s ON vp.vendor_id = s.vendor_id
             WHERE vp.vendor_id = $1 AND stock_status = 'Available'
             ORDER BY sold_count DESC
             LIMIT 5
-        `, [vendorId]);
+    `, [vendorId]);
         
         res.json({ success: true, topSellers: result.rows });
     } catch (error) {
@@ -897,13 +920,13 @@ app.get('/api/vendor/analytics/:vendorId/dead-stock', async (req, res) => {
         
         const result = await pool.query(`
             SELECT id, name, category, purity, final_price, stock_quantity, created_at,
-                   EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at)) as days_old
+    EXTRACT(DAY FROM(CURRENT_TIMESTAMP - created_at)) as days_old
             FROM vendor_products
             WHERE vendor_id = $1 
               AND stock_quantity > 0
               AND created_at < CURRENT_TIMESTAMP - INTERVAL '60 days'
             ORDER BY created_at ASC
-        `, [vendorId]);
+    `, [vendorId]);
         
         res.json({ success: true, deadStock: result.rows });
     } catch (error) {
@@ -918,11 +941,11 @@ app.get('/api/vendor/analytics/:vendorId/category-contribution', async (req, res
         const { vendorId } = req.params;
         
         const result = await pool.query(`
-            SELECT 
-                category,
-                COUNT(*) as product_count,
-                SUM(stock_quantity) as total_stock,
-                SUM(final_price * stock_quantity) as total_value
+SELECT
+category,
+    COUNT(*) as product_count,
+    SUM(stock_quantity) as total_stock,
+    SUM(final_price * stock_quantity) as total_value
             FROM vendor_products
             WHERE vendor_id = $1
             GROUP BY category
@@ -945,7 +968,7 @@ app.put('/api/vendor/shop/:id', async (req, res) => {
         const result = await pool.query(
             `UPDATE shops 
              SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
-             WHERE id = $5 RETURNING *`,
+             WHERE id = $5 RETURNING * `,
             [shop_name, shop_address, logo_url, banner_url, id]
         );
         
@@ -969,7 +992,7 @@ app.put('/api/vendor/shop/by-vendor/:vendorId', async (req, res) => {
         const result = await pool.query(
             `UPDATE shops 
              SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
-             WHERE vendor_id = $5 RETURNING *`,
+             WHERE vendor_id = $5 RETURNING * `,
             [shop_name, shop_address, logo_url, banner_url, vendorId]
         );
         
@@ -994,7 +1017,7 @@ app.post('/api/vendor/shop/:vendorId/banner', async (req, res) => {
         const result = await pool.query(
             `UPDATE shops 
              SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
-             WHERE vendor_id = $2 RETURNING *`,
+             WHERE vendor_id = $2 RETURNING * `,
             [banner_url, vendorId]
         );
         
@@ -1121,7 +1144,7 @@ app.get('/api/vendor/shop/:vendorId', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch shop' });
     }
 });
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${ PORT } `);
     await createVendorsTable();
     await createUsersTable();
     await createProductsTable();
