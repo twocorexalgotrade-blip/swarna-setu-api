@@ -661,6 +661,79 @@ app.get('/api/orders/user/:userId', async (req, res) => {
 // Start the server
 app.listen(PORT, async () => {
 
+// Update shop details
+app.put('/api/vendor/shop/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { shop_name, shop_address, logo_url, banner_url } = req.body;
+        
+        const result = await pool.query(
+            `UPDATE shops 
+             SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $5 RETURNING *`,
+            [shop_name, shop_address, logo_url, banner_url, id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+        
+        res.json({ success: true, shop: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating shop:', error);
+        res.status(500).json({ error: 'Failed to update shop' });
+    }
+});
+
+// Update shop by vendor_id
+app.put('/api/vendor/shop/by-vendor/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const { shop_name, shop_address, logo_url, banner_url } = req.body;
+        
+        const result = await pool.query(
+            `UPDATE shops 
+             SET shop_name = $1, shop_address = $2, logo_url = $3, banner_url = $4, updated_at = CURRENT_TIMESTAMP
+             WHERE vendor_id = $5 RETURNING *`,
+            [shop_name, shop_address, logo_url, banner_url, vendorId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+        
+        res.json({ success: true, shop: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating shop:', error);
+        res.status(500).json({ error: 'Failed to update shop' });
+    }
+});
+
+// Create/Update banner customization
+app.post('/api/vendor/shop/:vendorId/banner', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const { banner_type, banner_url } = req.body;
+        
+        // For now, just update the shop's banner_url
+        const result = await pool.query(
+            `UPDATE shops 
+             SET banner_url = $1, updated_at = CURRENT_TIMESTAMP
+             WHERE vendor_id = $2 RETURNING *`,
+            [banner_url, vendorId]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+        
+        res.json({ success: true, shop: result.rows[0] });
+    } catch (error) {
+        console.error('Error updating banner:', error);
+        res.status(500).json({ error: 'Failed to update banner' });
+    }
+});
+
 // ===== ADMIN SHOP MANAGEMENT APIS =====
 
 // Create new shop
