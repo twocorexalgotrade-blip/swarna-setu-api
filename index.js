@@ -40,28 +40,74 @@ const createUsersTable = async () => {
   `;
     try { await pool.query(queryText); console.log('"users" table is ready.'); } catch (err) { console.error('Error creating users table', err.stack); }
 };
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+// Create vendor products table
 const createProductsTable = async () => {
-    const queryText = `
+    // Create vendor_products table
+    const vendorProductsQuery = `
+    CREATE TABLE IF NOT EXISTS vendor_products (
+      id SERIAL PRIMARY KEY,
+      vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(100) NOT NULL,
+      sub_category VARCHAR(100),
+      weight_grams NUMERIC(10, 2),
+      purity VARCHAR(20),
+      additional_items JSONB,
+      image_urls TEXT[],
+      sourcing_info TEXT,
+      qr_code TEXT,
+      stock_quantity INTEGER DEFAULT 0,
+      stock_status VARCHAR(50) DEFAULT 'Available',
+      gold_cost NUMERIC(10, 2),
+      gem_cost NUMERIC(10, 2),
+      markup NUMERIC(10, 2),
+      final_price NUMERIC(10, 2),
+      price NUMERIC(10, 2),
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    
+    // Create old products table for backward compatibility
+    const oldProductsQuery = `
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       name VARCHAR(255) NOT NULL,
       description TEXT,
-      price NUMERIC(10, 2) NOT NULL,
+      price NUMERIC(10, 2),
       weight_grams NUMERIC(10, 2),
       category VARCHAR(100),
-      purity VARCHAR(50),
-      image_url VARCHAR(255),
-      in_stock BOOLEAN DEFAULT TRUE,
+      purity VARCHAR(20),
+      image_url TEXT,
+      in_stock BOOLEAN DEFAULT true,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
   `;
-    try { await pool.query(queryText); console.log('"products" table is ready.'); } catch (err) { console.error('Error creating products table', err.stack); }
+    
+    try { 
+        await pool.query(vendorProductsQuery); 
+        console.log('"vendor_products" table is ready.');
+        
+        // Add new columns if they don't exist (migration)
+        await pool.query(`
+            ALTER TABLE vendor_products 
+            ADD COLUMN IF NOT EXISTS stock_status VARCHAR(50) DEFAULT 'Available',
+            ADD COLUMN IF NOT EXISTS gold_cost NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS gem_cost NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS markup NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS final_price NUMERIC(10, 2),
+            ADD COLUMN IF NOT EXISTS image_urls TEXT[];
+        `);
+        console.log('vendor_products table migrations applied.');
+        
+        await pool.query(oldProductsQuery);
+        console.log('"products" table is ready.');
+    } catch (err) { 
+        console.error('Error creating products tables', err.stack); 
+    }
 };
-const createBagItemsTable = async () => {
-    const queryText = `
-    CREATE TABLE IF NOT EXISTS bag_items (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       product_id TEXT NOT NULL,
       product_name VARCHAR(255) NOT NULL,
       product_image_url VARCHAR(255),
