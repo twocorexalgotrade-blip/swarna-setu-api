@@ -121,6 +121,34 @@ const createAddressesTable = async () => {
     try { await pool.query(queryText); console.log('"addresses" table is ready.'); } catch (err) { console.error('Error creating addresses table', err.stack); }
 };
 
+const createShopsTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS shops (
+      id SERIAL PRIMARY KEY,
+      shop_name VARCHAR(255) NOT NULL,
+      shop_address TEXT NOT NULL,
+      logo_url TEXT,
+      banner_url TEXT,
+      product_quantity_limit INTEGER DEFAULT 100,
+      vendor_id VARCHAR(100) UNIQUE NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"shops" table is ready.'); } catch (err) { console.error('Error creating shops table', err.stack); }
+};
+
+const createVendorCredentialsTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS vendor_credentials (
+      id SERIAL PRIMARY KEY,
+      vendor_id VARCHAR(100) UNIQUE NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
+      password VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"vendor_credentials" table is ready.'); } catch (err) { console.error('Error creating vendor_credentials table', err.stack); }
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -632,6 +660,119 @@ app.get('/api/orders/user/:userId', async (req, res) => {
 
 // Start the server
 app.listen(PORT, async () => {
+
+// ===== ADMIN SHOP MANAGEMENT APIS =====
+
+// Create new shop
+app.post('/api/admin/shops', async (req, res) => {
+    try {
+        const { shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id, password } = req.body;
+        
+        // Hash the password
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
+        // Insert shop
+        const shopResult = await pool.query(
+            'INSERT INTO shops (shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+            [shop_name, shop_address, logo_url, banner_url, product_quantity_limit, vendor_id]
+        );
+        
+        // Insert vendor credentials
+        await pool.query(
+            'INSERT INTO vendor_credentials (vendor_id, password) VALUES ($1, $2)',
+            [vendor_id, hashedPassword]
+        );
+        
+        res.status(201).json({ success: true, shop: shopResult.rows[0] });
+    } catch (error) {
+        console.error('Error creating shop:', error);
+        res.status(500).json({ error: 'Failed to create shop', details: error.message });
+    }
+});
+
+// Get all shops
+app.get('/api/admin/shops', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM shops ORDER BY created_at DESC');
+        res.json({ success: true, shops: result.rows });
+    } catch (error) {
+        console.error('Error fetching shops:', error);
+        res.status(500).json({ error: 'Failed to fetch shops' });
+    }
+});
+
+// Get shop by ID
+app.get('/api/admin/shops/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM shops WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+        res.json({ success: true, shop: result.rows[0] });
+    } catch (error) {
+        console.error('Error fetching shop:', error);
+        res.status(500).json({ error: 'Failed to fetch shop' });
+    }
+});
+
+// ===== VENDOR AUTHENTICATION APIS =====
+
+// Vendor login
+app.post('/api/vendor/login', async (req, res) => {
+    try {
+        const { vendor_id, password } = req.body;
+        
+        // Get vendor credentials
+        const credResult = await pool.query(
+            'SELECT * FROM vendor_credentials WHERE vendor_id = $1',
+            [vendor_id]
+        );
+        
+        if (credResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        // Verify password
+        const isValid = await bcrypt.compare(password, credResult.rows[0].password);
+        if (!isValid) {
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        
+        // Get shop details
+        const shopResult = await pool.query(
+            'SELECT * FROM shops WHERE vendor_id = $1',
+            [vendor_id]
+        );
+        
+        // Generate token (simple version, in production use proper JWT)
+        const token = jwt.sign({ vendor_id, shop_id: shopResult.rows[0].id }, 'your-secret-key', { expiresIn: '7d' });
+        
+        res.json({ 
+            success: true, 
+            token,
+            shop: shopResult.rows[0]
+        });
+    } catch (error) {
+        console.error('Error during vendor login:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
+
+// Get vendor shop details
+app.get('/api/vendor/shop/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const result = await pool.query('SELECT * FROM shops WHERE vendor_id = $1', [vendorId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Shop not found' });
+        }
+        res.json({ success: true, shop: result.rows[0] });
+    } catch (error) {
+        console.error('Error fetching vendor shop:', error);
+        res.status(500).json({ error: 'Failed to fetch shop' });
+    }
+});
     console.log(`Server is running on port ${PORT}`);
     await createVendorsTable();
     await createUsersTable();
@@ -640,6 +781,7 @@ app.listen(PORT, async () => {
     await createOrdersTable();
     await createOrderItemsTable();
     await createAddressesTable();
-    await performMigrations(); // Run migrations specifically for mobile_number
+    await createShopsTable();
+    await createVendorCredentialsTable();    await performMigrations(); // Run migrations specifically for mobile_number
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
 });
