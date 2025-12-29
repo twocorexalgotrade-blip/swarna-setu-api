@@ -1085,5 +1085,6 @@ app.get('/api/vendor/shop/:vendorId', async (req, res) => {
     await createAddressesTable();
     await createShopsTable();
     await createVendorCredentialsTable();    await performMigrations(); // Run migrations specifically for mobile_number
-    await createProductsTableForVendor();    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
+    await createProductsTable();
+    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
     await createBillsTable();});
