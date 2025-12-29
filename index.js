@@ -397,11 +397,14 @@ app.get('/api/vendor/products', async (req, res) => {
     }
 });
 app.post('/api/vendor/products', async (req, res) => {
-    const { name, description, price, weight, category, purity } = req.body;
-    const randomImage = highQualityProducts[Math.floor(Math.random() * highQualityProducts.length)].imageUrl;
+    const { name, description, price, weight, category, purity, image_url } = req.body;
+    // const randomImage = highQualityProducts[Math.floor(Math.random() * highQualityProducts.length)].imageUrl;
+    // Use provided image_url or fallback to null (or a default placeholder url if you have one hosted)
+    const finalImage = image_url || null;
+
     if (!name || !price) return res.status(400).json({ message: "Product name and price are required." });
     try {
-        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [name, description, price, weight, category, purity, randomImage, true]);
+        const newProduct = await pool.query("INSERT INTO products (name, description, price, weight_grams, category, purity, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *", [name, description, price, weight, category, purity, finalImage, true]);
         res.status(201).json({ message: 'Product created successfully', product: newProduct.rows[0] });
     } catch (err) {
         console.error(err.message);
