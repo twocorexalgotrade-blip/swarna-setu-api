@@ -661,6 +661,235 @@ app.get('/api/orders/user/:userId', async (req, res) => {
 // Start the server
 app.listen(PORT, async () => {
 
+// Create bills table
+const createBillsTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS vendor_bills (
+      id SERIAL PRIMARY KEY,
+      vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
+      product_id INTEGER REFERENCES vendor_products(id),
+      customer_name VARCHAR(255) NOT NULL,
+      customer_phone VARCHAR(20) NOT NULL,
+      total_amount NUMERIC(10, 2) NOT NULL,
+      bill_pdf_url TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { 
+        await pool.query(queryText); 
+        console.log('"vendor_bills" table is ready.'); 
+    } catch (err) { 
+        console.error('Error creating vendor_bills table', err.stack); 
+    }
+};
+
+// Create bill API
+app.post('/api/vendor/bills', async (req, res) => {
+    try {
+        const { vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url } = req.body;
+        
+        const result = await pool.query(
+            `INSERT INTO vendor_bills (vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url) 
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [vendor_id, product_id, customer_name, customer_phone, total_amount, bill_pdf_url]
+        );
+        
+        res.status(201).json({ success: true, bill: result.rows[0] });
+    } catch (error) {
+        console.error('Error creating bill:', error);
+        res.status(500).json({ error: 'Failed to create bill', details: error.message });
+    }
+});
+
+// Get all bills for vendor
+app.get('/api/vendor/bills/:vendorId', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const result = await pool.query(
+            `SELECT vb.*, vp.name as product_name 
+             FROM vendor_bills vb
+             LEFT JOIN vendor_products vp ON vb.product_id = vp.id
+             WHERE vb.vendor_id = $1 
+             ORDER BY vb.created_at DESC`,
+            [vendorId]
+        );
+        res.json({ success: true, bills: result.rows });
+    } catch (error) {
+        console.error('Error fetching bills:', error);
+        res.status(500).json({ error: 'Failed to fetch bills' });
+    }
+});
+
+// ===== ADVANCED ANALYTICS APIS =====
+
+// Sales by period
+app.get('/api/vendor/analytics/:vendorId/sales', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        const { period } = req.query; // daily, weekly, monthly, yearly
+        
+        // For now, return mock data - would need actual sales/orders table
+        const mockData = {
+            daily: [
+                { date: '2025-12-23', sales: 45000, orders: 3 },
+                { date: '2025-12-24', sales: 67000, orders: 5 },
+                { date: '2025-12-25', sales: 89000, orders: 7 },
+                { date: '2025-12-26', sales: 52000, orders: 4 },
+                { date: '2025-12-27', sales: 78000, orders: 6 },
+                { date: '2025-12-28', sales: 95000, orders: 8 },
+                { date: '2025-12-29', sales: 112000, orders: 9 },
+            ],
+            weekly: [
+                { week: 'Week 1', sales: 250000, orders: 18 },
+                { week: 'Week 2', sales: 320000, orders: 24 },
+                { week: 'Week 3', sales: 280000, orders: 21 },
+                { week: 'Week 4', sales: 450000, orders: 32 },
+            ],
+            monthly: [
+                { month: 'Jan', sales: 850000, orders: 65 },
+                { month: 'Feb', sales: 920000, orders: 72 },
+                { month: 'Mar', sales: 1100000, orders: 85 },
+                { month: 'Apr', sales: 980000, orders: 78 },
+            ],
+        };
+        
+        res.json({ success: true, data: mockData[period] || mockData.daily });
+    } catch (error) {
+        console.error('Error fetching sales data:', error);
+        res.status(500).json({ error: 'Failed to fetch sales data' });
+    }
+});
+
+// Trends analysis
+app.get('/api/vendor/analytics/:vendorId/trends', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        const categoryTrends = await pool.query(`
+            SELECT category, COUNT(*) as count, SUM(stock_quantity) as total_stock
+            FROM vendor_products 
+            WHERE vendor_id = $1 
+            GROUP BY category 
+            ORDER BY count DESC
+        `, [vendorId]);
+        
+        const purityTrends = await pool.query(`
+            SELECT purity, COUNT(*) as count 
+            FROM vendor_products 
+            WHERE vendor_id = $1 AND purity IS NOT NULL
+            GROUP BY purity 
+            ORDER BY count DESC
+        `, [vendorId]);
+        
+        res.json({
+            success: true,
+            categoryTrends: categoryTrends.rows,
+            purityTrends: purityTrends.rows,
+        });
+    } catch (error) {
+        console.error('Error fetching trends:', error);
+        res.status(500).json({ error: 'Failed to fetch trends' });
+    }
+});
+
+// Price bracket analysis
+app.get('/api/vendor/analytics/:vendorId/price-brackets', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        const result = await pool.query(`
+            SELECT 
+                CASE 
+                    WHEN final_price < 20000 THEN 'Under ₹20K'
+                    WHEN final_price >= 20000 AND final_price < 50000 THEN '₹20K-₹50K'
+                    WHEN final_price >= 50000 AND final_price < 100000 THEN '₹50K-₹1L'
+                    WHEN final_price >= 100000 THEN 'Above ₹1L'
+                    ELSE 'No Price'
+                END as bracket,
+                COUNT(*) as count
+            FROM vendor_products
+            WHERE vendor_id = $1
+            GROUP BY bracket
+            ORDER BY MIN(final_price)
+        `, [vendorId]);
+        
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        console.error('Error fetching price brackets:', error);
+        res.status(500).json({ error: 'Failed to fetch price brackets' });
+    }
+});
+
+// Top sellers
+app.get('/api/vendor/analytics/:vendorId/top-sellers', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        // Get products sorted by stock quantity (assuming lower stock = more sold)
+        // In real app, would track actual sales
+        const result = await pool.query(`
+            SELECT id, name, category, purity, final_price, stock_quantity,
+                   (product_quantity_limit - stock_quantity) as sold_count
+            FROM vendor_products vp
+            JOIN shops s ON vp.vendor_id = s.vendor_id
+            WHERE vp.vendor_id = $1 AND stock_status = 'Available'
+            ORDER BY sold_count DESC
+            LIMIT 5
+        `, [vendorId]);
+        
+        res.json({ success: true, topSellers: result.rows });
+    } catch (error) {
+        console.error('Error fetching top sellers:', error);
+        res.status(500).json({ error: 'Failed to fetch top sellers' });
+    }
+});
+
+// Dead stock (items not sold in 60+ days)
+app.get('/api/vendor/analytics/:vendorId/dead-stock', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        const result = await pool.query(`
+            SELECT id, name, category, purity, final_price, stock_quantity, created_at,
+                   EXTRACT(DAY FROM (CURRENT_TIMESTAMP - created_at)) as days_old
+            FROM vendor_products
+            WHERE vendor_id = $1 
+              AND stock_quantity > 0
+              AND created_at < CURRENT_TIMESTAMP - INTERVAL '60 days'
+            ORDER BY created_at ASC
+        `, [vendorId]);
+        
+        res.json({ success: true, deadStock: result.rows });
+    } catch (error) {
+        console.error('Error fetching dead stock:', error);
+        res.status(500).json({ error: 'Failed to fetch dead stock' });
+    }
+});
+
+// Category contribution
+app.get('/api/vendor/analytics/:vendorId/category-contribution', async (req, res) => {
+    try {
+        const { vendorId } = req.params;
+        
+        const result = await pool.query(`
+            SELECT 
+                category,
+                COUNT(*) as product_count,
+                SUM(stock_quantity) as total_stock,
+                SUM(final_price * stock_quantity) as total_value
+            FROM vendor_products
+            WHERE vendor_id = $1
+            GROUP BY category
+            ORDER BY total_value DESC
+        `, [vendorId]);
+        
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        console.error('Error fetching category contribution:', error);
+        res.status(500).json({ error: 'Failed to fetch category contribution' });
+    }
+});
+
 // Update shop details
 app.put('/api/vendor/shop/:id', async (req, res) => {
     try {
@@ -857,4 +1086,4 @@ app.get('/api/vendor/shop/:vendorId', async (req, res) => {
     await createShopsTable();
     await createVendorCredentialsTable();    await performMigrations(); // Run migrations specifically for mobile_number
     await createProductsTableForVendor();    console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
-});
+    await createBillsTable();});
