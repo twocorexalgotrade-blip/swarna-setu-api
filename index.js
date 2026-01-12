@@ -180,6 +180,7 @@ const performMigrations = async () => {
         await pool.query(`
             DO $$ 
             BEGIN 
+                -- USERS TABLE MIGRATIONS
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='mobile_number') THEN 
                     ALTER TABLE users ADD COLUMN mobile_number VARCHAR(15) UNIQUE; 
                 END IF;
@@ -197,6 +198,20 @@ const performMigrations = async () => {
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='gender') THEN 
                     ALTER TABLE users ADD COLUMN gender VARCHAR(50); 
+                END IF;
+
+                -- PRODUCTS TABLE MIGRATIONS
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='supplier_id') THEN 
+                    ALTER TABLE products ADD COLUMN supplier_id INTEGER; 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='purchase_price') THEN 
+                    ALTER TABLE products ADD COLUMN purchase_price NUMERIC(10, 2); 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='is_published') THEN 
+                    ALTER TABLE products ADD COLUMN is_published BOOLEAN DEFAULT FALSE; 
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='published_at') THEN 
+                    ALTER TABLE products ADD COLUMN published_at TIMESTAMP WITH TIME ZONE; 
                 END IF;
             END $$;
         `);
@@ -831,7 +846,7 @@ app.listen(PORT, async () => {
     CREATE TABLE IF NOT EXISTS vendor_bills (
       id SERIAL PRIMARY KEY,
       vendor_id VARCHAR(100) NOT NULL REFERENCES shops(vendor_id) ON DELETE CASCADE,
-      product_id INTEGER REFERENCES vendor_products(id),
+      product_id INTEGER REFERENCES products(id),
       customer_name VARCHAR(255) NOT NULL,
       customer_phone VARCHAR(20) NOT NULL,
       total_amount NUMERIC(10, 2) NOT NULL,
