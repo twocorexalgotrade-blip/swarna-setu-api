@@ -213,6 +213,15 @@ const performMigrations = async () => {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='published_at') THEN 
                     ALTER TABLE products ADD COLUMN published_at TIMESTAMP WITH TIME ZONE; 
                 END IF;
+                
+                -- Change image_url from VARCHAR(255) to TEXT to support base64 images
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name='products' AND column_name='image_url' 
+                    AND data_type='character varying'
+                ) THEN 
+                    ALTER TABLE products ALTER COLUMN image_url TYPE TEXT; 
+                END IF;
             END $$;
         `);
         // Make email/password nullable if we are shifting to Mobile-first (Optional step, keeping simple for now)
