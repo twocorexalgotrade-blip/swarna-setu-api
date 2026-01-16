@@ -472,7 +472,7 @@ app.put('/api/vendor/products/:id', async (req, res) => {
         res.status(500).json({ message: "Server error updating product." });
     }
 });
-
+////////////
 // --- SUPPLIER MANAGEMENT ROUTES ---
 // Get all suppliers for a vendor
 app.get('/api/vendor/suppliers', async (req, res) => {
