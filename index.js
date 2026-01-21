@@ -4,8 +4,18 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const listEndpoints = require('express-list-endpoints');
+const { Server } = require('socket.io');
+const { v4: uuidv4 } = require('uuid');
+const http = require('http');
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 const PORT = process.env.PORT || 3000;
 
 // --- DATABASE CONNECTION ---
@@ -168,6 +178,27 @@ const createVendorCredentialsTable = async () => {
     try { await pool.query(queryText); console.log('"vendor_credentials" table is ready.'); } catch (err) { console.error('Error creating vendor_credentials table', err.stack); }
 };
 
+const createCallHistoryTable = async () => {
+    const queryText = `
+    CREATE TABLE IF NOT EXISTS call_history (
+      id SERIAL PRIMARY KEY,
+      room_id VARCHAR(100) UNIQUE NOT NULL,
+      caller_id VARCHAR(100) NOT NULL,
+      caller_name VARCHAR(255),
+      caller_type VARCHAR(50) NOT NULL,
+      receiver_id VARCHAR(100) NOT NULL,
+      receiver_name VARCHAR(255),
+      receiver_type VARCHAR(50) NOT NULL,
+      status VARCHAR(50) NOT NULL,
+      duration_seconds INTEGER DEFAULT 0,
+      started_at TIMESTAMP WITH TIME ZONE,
+      ended_at TIMESTAMP WITH TIME ZONE,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+    try { await pool.query(queryText); console.log('"call_history" table is ready.'); } catch (err) { console.error('Error creating call_history table', err.stack); }
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
@@ -276,6 +307,89 @@ app.delete('/api/admin/users/:id', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to delete user' });
+    }
+});
+
+// --- VIDEO CALL ROUTES ---
+app.post('/api/call/initiate', async (req, res) => {
+    try {
+        const { callerId, callerName, callerType, receiverId, receiverName, receiverType } = req.body;
+
+        if (!callerId || !receiverId || !callerType || !receiverType) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+
+        const roomId = uuidv4();
+
+        // Create call history record
+        const result = await pool.query(
+            `INSERT INTO call_history (room_id, caller_id, caller_name, caller_type, receiver_id, receiver_name, receiver_type, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING *`,
+            [roomId, callerId, callerName, callerType, receiverId, receiverName, receiverType, 'initiated']
+        );
+
+        // Notify receiver via Socket.IO
+        io.emit(`incoming-call-${receiverId}`, {
+            roomId,
+            callerId,
+            callerName,
+            callerType
+        });
+
+        res.status(201).json({
+            success: true,
+            roomId,
+            call: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Error initiating call:', err.message);
+        res.status(500).json({ message: 'Server error initiating call' });
+    }
+});
+
+app.get('/api/call/history/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { userType } = req.query; // 'vendor', 'user', or 'admin'
+
+        const result = await pool.query(
+            `SELECT * FROM call_history 
+             WHERE (caller_id = $1 AND caller_type = $2) OR (receiver_id = $1 AND receiver_type = $2)
+             ORDER BY created_at DESC
+             LIMIT 50`,
+            [userId, userType]
+        );
+
+        res.json({ success: true, calls: result.rows });
+    } catch (err) {
+        console.error('Error fetching call history:', err.message);
+        res.status(500).json({ message: 'Server error fetching call history' });
+    }
+});
+
+app.put('/api/call/:roomId/status', async (req, res) => {
+    try {
+        const { roomId } = req.params;
+        const { status, duration } = req.body;
+
+        let query, params;
+        if (status === 'started') {
+            query = 'UPDATE call_history SET status = $1, started_at = NOW() WHERE room_id = $2 RETURNING *';
+            params = [status, roomId];
+        } else if (status === 'ended') {
+            query = 'UPDATE call_history SET status = $1, ended_at = NOW(), duration_seconds = $2 WHERE room_id = $3 RETURNING *';
+            params = [status, duration || 0, roomId];
+        } else {
+            query = 'UPDATE call_history SET status = $1 WHERE room_id = $2 RETURNING *';
+            params = [status, roomId];
+        }
+
+        const result = await pool.query(query, params);
+        res.json({ success: true, call: result.rows[0] });
+    } catch (err) {
+        console.error('Error updating call status:', err.message);
+        res.status(500).json({ message: 'Server error updating call status' });
     }
 });
 
@@ -846,8 +960,73 @@ app.get('/api/orders/user/:userId', async (req, res) => {
     }
 });
 
+// --- SOCKET.IO SIGNALING FOR VIDEO CALLS ---
+const activeUsers = new Map(); // userId -> socketId mapping
+
+io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    // User registers their ID for receiving calls
+    socket.on('register-user', (data) => {
+        const { userId, userType } = data;
+        activeUsers.set(userId, socket.id);
+        console.log(`User registered: ${userId} (${userType}) -> ${socket.id}`);
+    });
+
+    // Join a call room
+    socket.on('join-room', async (data) => {
+        const { roomId, userId } = data;
+        socket.join(roomId);
+        console.log(`User ${userId} joined room: ${roomId}`);
+
+        // Notify others in the room
+        socket.to(roomId).emit('user-joined', { userId });
+    });
+
+    // WebRTC Offer
+    socket.on('offer', (data) => {
+        const { roomId, offer } = data;
+        console.log(`Offer received for room: ${roomId}`);
+        socket.to(roomId).emit('offer', { offer });
+    });
+
+    // WebRTC Answer
+    socket.on('answer', (data) => {
+        const { roomId, answer } = data;
+        console.log(`Answer received for room: ${roomId}`);
+        socket.to(roomId).emit('answer', { answer });
+    });
+
+    // ICE Candidate
+    socket.on('ice-candidate', (data) => {
+        const { roomId, candidate } = data;
+        socket.to(roomId).emit('ice-candidate', { candidate });
+    });
+
+    // End call
+    socket.on('end-call', (data) => {
+        const { roomId } = data;
+        console.log(`Call ended in room: ${roomId}`);
+        socket.to(roomId).emit('call-ended');
+        socket.leave(roomId);
+    });
+
+    // Disconnect
+    socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id);
+        // Remove from active users
+        for (const [userId, socketId] of activeUsers.entries()) {
+            if (socketId === socket.id) {
+                activeUsers.delete(userId);
+                console.log(`User ${userId} removed from active users`);
+                break;
+            }
+        }
+    });
+});
+
 // Start the server
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
 
     // Create bills table
     const createBillsTable = async () => {
@@ -1274,6 +1453,7 @@ app.listen(PORT, async () => {
     await createAddressesTable();
     await createShopsTable();
     await createVendorCredentialsTable(); await performMigrations(); // Run migrations specifically for mobile_number
+    await createCallHistoryTable();
     await createProductsTable();
     console.log('Registered routes:', JSON.stringify(listEndpoints(app), null, 2));
     await createBillsTable();
