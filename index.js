@@ -1479,25 +1479,12 @@ server.listen(PORT, async () => {
             // Also create vendor credential so they can login via vendor login
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
-            // We use the vendor_id (MFG-...) as the email/username equivalent in the vendors table 
-            // OR we can make a separate logic. For now, let's just assume they use vendor_id to login
-            // But the vendors table uses email. Let's insert into vendors table with vendor_id as email for now 
-            // to simplify allow login via existing /api/auth/vendor/login if it checks email.
-            // Actually, existing /api/auth/vendor/login checks 'email' column.
 
-            // Let's create a record in 'vendors' so they can log in.
-            // We'll use vendor_id as the email since the login screen likely asks for "Email/ID". 
-            // If login asks for email, we might need a dummy email.
-            // The frontend Generated Vendor ID is like MFG-...
-
-            // Check if existing vendor login flow supports non-email.
-            // It does: SELECT * FROM vendors WHERE email = $1.
-            // So we can insert vendor_id into 'email' column or add a 'vendor_id' column to vendors table.
-            // Let's just insert into manufacturers table for now as requested by "Create Manufacturer" feature
-            // and usually there is a separate "Manufacturer Login" or they use the Vendor Portal.
-            // If they use Vendor Portal, we should also insert into vendors table.
-
-            // For this specific error "Cannot POST", just fixing the endpoint is the primary goal.
+            // Insert into vendors table so they can login using vendor_id as the "email"
+            await pool.query(
+                "INSERT INTO vendors (email, password) VALUES ($1, $2)",
+                [vendor_id, hashedPassword]
+            );
 
             res.status(201).json({
                 success: true,
