@@ -1477,14 +1477,7 @@ server.listen(PORT, async () => {
             );
 
             // Also create vendor credential so they can login via vendor login
-            const salt = await bcrypt.genSalt(10);
-            const hashedPassword = await bcrypt.hash(password, salt);
-
-            // Insert into vendors table so they can login using vendor_id as the "email"
-            await pool.query(
-                "INSERT INTO vendors (email, password) VALUES ($1, $2)",
-                [vendor_id, hashedPassword]
-            );
+            // REMOVED: Inserting into vendors table. Manufacturers are now separate.
 
             res.status(201).json({
                 success: true,
@@ -1495,6 +1488,34 @@ server.listen(PORT, async () => {
         } catch (err) {
             console.error('Error creating manufacturer:', err.message);
             res.status(500).json({ message: "Server error creating manufacturer." });
+        }
+    });
+
+    app.post('/api/auth/manufacturer/login', async (req, res) => {
+        const { vendor_id, password } = req.body; // Accepting vendor_id (MFG-...) and password
+        if (!vendor_id || !password) return res.status(400).json({ message: 'Vendor ID and password are required.' });
+
+        try {
+            const userQuery = await pool.query("SELECT * FROM manufacturers WHERE vendor_id = $1", [vendor_id]);
+
+            if (userQuery.rows.length === 0) return res.status(400).json({ message: 'Invalid credentials.' });
+
+            const user = userQuery.rows[0];
+            // Ensure you are using bcrypt compare
+            const isMatch = await bcrypt.compare(password, user.password);
+
+            if (!isMatch) return res.status(400).json({ message: 'Invalid credentials.' });
+
+            const payload = { user: { id: user.id, type: 'manufacturer', vendor_id: user.vendor_id } };
+            const secretKey = process.env.JWT_SECRET || 'my-super-secret-key-for-now';
+
+            jwt.sign(payload, secretKey, { expiresIn: '24h' }, (err, token) => {
+                if (err) throw err;
+                res.json({ token, user: { id: user.id, name: user.manufacturer_name, type: 'manufacturer', vendor_id: user.vendor_id } });
+            });
+        } catch (err) {
+            console.error(err.message);
+            res.status(500).json({ message: 'Server error during login' });
         }
     });
     console.log(`Server is running on port ${PORT}`);
