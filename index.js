@@ -1468,12 +1468,16 @@ server.listen(PORT, async () => {
                 return res.status(400).json({ message: "Missing required fields" });
             }
 
+            // JOIN UPDATE: Hash password before storing in manufacturers table
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+
             // Create manufacturer
             const result = await pool.query(
                 `INSERT INTO manufacturers (manufacturer_name, manufacturer_address, logo_url, banner_url, vendor_id, password) 
              VALUES ($1, $2, $3, $4, $5, $6) 
              RETURNING *`,
-                [manufacturer_name, manufacturer_address, logo_url, banner_url, vendor_id, password]
+                [manufacturer_name, manufacturer_address, logo_url, banner_url, vendor_id, hashedPassword]
             );
 
             // Also create vendor credential so they can login via vendor login
