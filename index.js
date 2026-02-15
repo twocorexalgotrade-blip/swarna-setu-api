@@ -20,6 +20,9 @@ if (process.env.OPENAI_API_KEY) {
     console.log('⚠️  OpenAI API key not found - AI features will be disabled');
 }
 
+const app = express();
+const server = http.createServer(app);
+
 const io = new Server(server, {
     cors: {
         origin: "*",
