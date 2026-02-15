@@ -34,7 +34,7 @@ const PORT = process.env.PORT || 3000;
 // --- DATABASE CONNECTION ---
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgres://localhost:5432/swarnasetu',
-    ssl: false // Disable SSL for local development
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false // Enable SSL for production (Render)
 });
 
 // --- TABLE CREATION FUNCTIONS ---
