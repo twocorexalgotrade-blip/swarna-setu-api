@@ -8,15 +8,17 @@ const listEndpoints = require('express-list-endpoints');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
-const OpenAI = require('openai'); // OpenAI Import
-
-const app = express();
-const server = http.createServer(app);
-
-// Initialize OpenAI
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI (optional - only if API key is provided)
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+    const OpenAI = require('openai');
+    openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
+    console.log('✅ OpenAI initialized');
+} else {
+    console.log('⚠️  OpenAI API key not found - AI features will be disabled');
+}
 
 const io = new Server(server, {
     cors: {
