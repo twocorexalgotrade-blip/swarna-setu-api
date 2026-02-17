@@ -28,7 +28,7 @@ const seedProducts = async () => {
             weight: 45.0,
             category: 'Necklaces',
             purity: '22K',
-            image_url: 'web_assets/products/temple_jewelry.png'
+            image_url: '/web_assets/products/temple_jewelry.png'
         },
         {
             name: 'Gold Chain Collection',
@@ -37,7 +37,7 @@ const seedProducts = async () => {
             weight: 8.5,
             category: 'Necklaces',
             purity: '22K',
-            image_url: 'web_assets/products/gold_chain.png'
+            image_url: '/web_assets/products/gold_chain.png'
         },
         {
             name: 'Royal Kundan Choker',
@@ -46,7 +46,7 @@ const seedProducts = async () => {
             weight: 32.0,
             category: 'Necklaces',
             purity: '22K',
-            image_url: 'web_assets/products/crystal_choker.png'
+            image_url: '/web_assets/products/crystal_choker.png'
         },
         {
             name: 'Sleek Gold Bangles',
@@ -55,7 +55,7 @@ const seedProducts = async () => {
             weight: 12.5,
             category: 'Bangles',
             purity: '22K',
-            image_url: 'web_assets/products/gold_bangle.png'
+            image_url: '/web_assets/products/gold_bangle.png'
         },
         {
             name: 'Diamond Solitaire Ring',
@@ -64,7 +64,7 @@ const seedProducts = async () => {
             weight: 4.5,
             category: 'Rings',
             purity: '18K',
-            image_url: 'web_assets/products/diamond_solitaire.png'
+            image_url: '/web_assets/products/diamond_solitaire.png'
         },
         {
             name: 'Sapphire & Diamond Ring',
@@ -73,7 +73,7 @@ const seedProducts = async () => {
             weight: 5.2,
             category: 'Rings',
             purity: '18K',
-            image_url: 'web_assets/products/sapphire_ring.png'
+            image_url: '/web_assets/products/sapphire_ring.png'
         },
         {
             name: 'Thick Gold Chain',
@@ -82,7 +82,7 @@ const seedProducts = async () => {
             weight: 22.0,
             category: 'Necklaces',
             purity: '22K',
-            image_url: 'web_assets/products/thick_gold_chain.png'
+            image_url: '/web_assets/products/thick_gold_chain.png'
         },
         {
             name: 'Rose Gold Pendant',
@@ -91,7 +91,7 @@ const seedProducts = async () => {
             weight: 3.5,
             category: 'Pendants',
             purity: '18K',
-            image_url: 'web_assets/products/rose_gold_pendant.png'
+            image_url: '/web_assets/products/rose_gold_pendant.png'
         },
         {
             name: 'Diamond Tennis Bracelet',
@@ -100,7 +100,7 @@ const seedProducts = async () => {
             weight: 10.0,
             category: 'Bracelets',
             purity: '18K',
-            image_url: 'web_assets/products/diamond_tennis_bracelet.png'
+            image_url: '/web_assets/products/diamond_tennis_bracelet.png'
         },
         {
             name: 'Antique Gold Chandbalis',
@@ -109,7 +109,7 @@ const seedProducts = async () => {
             weight: 15.0,
             category: 'Earrings',
             purity: '22K',
-            image_url: 'web_assets/products/gold_chandbalis.png'
+            image_url: '/web_assets/products/gold_chandbalis.png'
         }
     ];
 
