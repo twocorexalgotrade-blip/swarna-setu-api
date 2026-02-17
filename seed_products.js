@@ -1,8 +1,10 @@
 const { Pool } = require('pg');
 
+const isProduction = process.env.NODE_ENV === 'production' || process.env.DATABASE_URL.includes('render');
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || 'postgres://localhost:5432/swarnasetu',
-    ssl: false
+    ssl: isProduction ? { rejectUnauthorized: false } : false
 });
 
 const seedProducts = async () => {
