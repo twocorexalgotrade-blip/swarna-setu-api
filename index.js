@@ -8,6 +8,7 @@ const listEndpoints = require('express-list-endpoints');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
+const compression = require('compression'); // Gzip compression for faster transfers
 // Initialize OpenAI (optional - only if API key is provided)
 let openai = null;
 if (process.env.OPENAI_API_KEY) {
@@ -211,12 +212,52 @@ const createCallHistoryTable = async () => {
 };
 
 // Middleware
+app.use(compression()); // Enable gzip compression (reduces transfer size by ~70%)
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Serve static files from parent directory (for frontend)
+// Serve static files from parent directory (for frontend) with caching
 const path = require('path');
-app.use(express.static(path.join(__dirname, '..')));
+
+// ── Smart root: same URL, UI auto-switches by device ──────────────────────
+app.get('/', (req, res) => {
+    const ua = req.headers['user-agent'] || '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+        || (/Macintosh/.test(ua) && /Touch/.test(ua)); // iPad iOS 13+
+
+    if (isMobile) {
+        // Inject <base href="/mobile/"> so all relative assets in FOR MOBILE resolve correctly
+        let html = fs.readFileSync(path.join(__dirname, '../FOR MOBILE/index.html'), 'utf8');
+        html = html.replace('<head>', '<head>\n    <base href="/mobile/">');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } else {
+        res.sendFile(path.join(__dirname, '../index.html'));
+    }
+});
+
+// /mobile → serves FOR MOBILE directory assets (styles, scripts, images, videos)
+app.use('/mobile', express.static(path.join(__dirname, '../FOR MOBILE'), {
+    maxAge: '1d',
+    etag: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg')) {
+            res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+}));
+// ──────────────────────────────────────────────────────────────────────────
+
+app.use(express.static(path.join(__dirname, '..'), {
+    maxAge: '1d', // Cache static files for 1 day
+    etag: true,
+    setHeaders: (res, filePath) => {
+        // Cache videos and images longer
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg')) {
+            res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+        }
+    }
+}));
 app.use(express.static('public')); // Serve static files from 'public' directory
 
 // --- DATABASE MIGRATIONS ---
