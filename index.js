@@ -8,6 +8,13 @@ const listEndpoints = require('express-list-endpoints');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
+const { Cashfree } = require('cashfree-pg'); // Added Cashfree SDK
+
+// Initialize Cashfree
+Cashfree.XClientId = process.env.CASHFREE_APP_ID || '';
+Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY || '';
+Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Change to PRODUCTION for live
+
 // Initialize OpenAI (optional - only if API key is provided)
 let openai = null;
 if (process.env.OPENAI_API_KEY) {
@@ -481,8 +488,10 @@ app.post('/api/auth/check-mobile', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM users WHERE mobile_number = $1", [mobileNumber]);
         if (result.rows.length > 0) {
-            // User exists
-            return res.json({ exists: true, user: result.rows[0] });
+            const user = result.rows[0];
+            // Profile is complete when first_name is set
+            const isProfileComplete = !!(user.first_name && user.first_name.trim().length > 0);
+            return res.json({ exists: true, user: { ...user, isProfileComplete } });
         } else {
             // User does not exist
             return res.json({ exists: false });
@@ -1477,6 +1486,46 @@ app.delete('/api/bag/:itemId', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: "Server error removing item from bag." });
+    }
+});
+
+// --- CASHFREE PAYMENT ROUTES ---
+app.post('/api/payment/cashfree/session', async (req, res) => {
+    try {
+        const { order_amount, customer_phone, customer_id, customer_name, customer_email } = req.body;
+
+        if (!order_amount || !customer_phone || !customer_id) {
+            return res.status(400).json({ error: 'Missing required parameters: order_amount, customer_phone, customer_id' });
+        }
+
+        const orderId = `order_${uuidv4().replace(/-/g, '').substring(0, 20)}`;
+
+        var request = {
+            "order_amount": parseFloat(order_amount),
+            "order_currency": "INR",
+            "order_id": orderId,
+            "customer_details": {
+                "customer_id": customer_id.toString(),
+                "customer_phone": customer_phone.startsWith('+91') ? customer_phone.substring(3) : customer_phone,
+                "customer_name": customer_name || "Customer",
+                "customer_email": customer_email || "test@swarnasetu.com"
+            },
+            "order_meta": {
+                "return_url": "https://swarnasetu.com/payment/return?order_id={order_id}",
+                "notify_url": "https://swarnasetu.com/api/payment/cashfree/webhook"
+            }
+        };
+
+        const response = await Cashfree.PGCreateOrder("2023-08-01", request);
+
+        console.log("Cashfree session created:", response.data);
+        res.status(200).json(response.data);
+    } catch (error) {
+        console.error('Error creating Cashfree session:', error.response?.data || error.message);
+        res.status(500).json({
+            error: 'Failed to create payment session',
+            details: error.response?.data?.message || error.message
+        });
     }
 });
 
