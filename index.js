@@ -8,7 +8,8 @@ const listEndpoints = require('express-list-endpoints');
 const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const http = require('http');
-const { Cashfree } = require('cashfree-pg'); // Added Cashfree SDK
+const compression = require('compression'); // Gzip compression for faster transfers
+const { Cashfree } = require('cashfree-pg'); // Cashfree Payment SDK
 
 // Initialize Cashfree
 Cashfree.XClientId = process.env.CASHFREE_APP_ID || '';
@@ -218,12 +219,52 @@ const createCallHistoryTable = async () => {
 };
 
 // Middleware
+app.use(compression()); // Enable gzip compression (reduces transfer size by ~70%)
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 
-// Serve static files from parent directory (for frontend)
+// Serve static files from parent directory (for frontend) with caching
 const path = require('path');
-app.use(express.static(path.join(__dirname, '..')));
+
+// ── Smart root: same URL, UI auto-switches by device ──────────────────────
+app.get('/', (req, res) => {
+    const ua = req.headers['user-agent'] || '';
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua)
+        || (/Macintosh/.test(ua) && /Touch/.test(ua)); // iPad iOS 13+
+
+    if (isMobile) {
+        // Inject <base href="/mobile/"> so all relative assets in FOR MOBILE resolve correctly
+        let html = fs.readFileSync(path.join(__dirname, '../FOR MOBILE/index.html'), 'utf8');
+        html = html.replace('<head>', '<head>\n    <base href="/mobile/">');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
+    } else {
+        res.sendFile(path.join(__dirname, '../index.html'));
+    }
+});
+
+// /mobile → serves FOR MOBILE directory assets (styles, scripts, images, videos)
+app.use('/mobile', express.static(path.join(__dirname, '../FOR MOBILE'), {
+    maxAge: '1d',
+    etag: true,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg')) {
+            res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+    }
+}));
+// ──────────────────────────────────────────────────────────────────────────
+
+app.use(express.static(path.join(__dirname, '..'), {
+    maxAge: '1d', // Cache static files for 1 day
+    etag: true,
+    setHeaders: (res, filePath) => {
+        // Cache videos and images longer
+        if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg')) {
+            res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+        }
+    }
+}));
 app.use(express.static('public')); // Serve static files from 'public' directory
 
 // --- DATABASE MIGRATIONS ---
@@ -359,20 +400,20 @@ app.post('/api/seed-database', async (req, res) => {
         // Seed Shop first
         await pool.query(
             'INSERT INTO shops (vendor_id, shop_name, shop_address, logo_url) VALUES ($1, $2, $3, $4) ON CONFLICT (vendor_id) DO NOTHING',
-            [vendorId, 'SAGAR GOLD', 'Mumbai, India', 'web asset/logos/sagar_gold.png']
+            [vendorId, 'SAGAR GOLD', 'Mumbai, India', '/web_assets/logos/sagar_gold.png']
         );
 
         const products = [
-            { name: 'Imperial Polki Necklace', description: 'A masterpiece of unfinished diamonds set in 22K gold.', price: 250000, weight: 45.0, category: 'Necklaces', purity: '22K', image_url: 'web asset/products/temple_jewelry.png' },
-            { name: 'Gold Chain Collection', description: 'Exquisite handcrafted gold chains showing traditional artistry.', price: 45000, weight: 8.5, category: 'Necklaces', purity: '22K', image_url: 'web asset/products/gold_chain.png' },
-            { name: 'Royal Kundan Choker', description: 'Regal choker necklace capable of elevating any bridal look.', price: 180000, weight: 32.0, category: 'Necklaces', purity: '22K', image_url: 'web asset/products/crystal_choker.png' },
-            { name: 'Sleek Gold Bangles', description: 'Set of 4 daily wear gold bangles.', price: 68000, weight: 12.5, category: 'Bangles', purity: '22K', image_url: 'web asset/products/gold_bangle.png' },
-            { name: 'Diamond Solitaire Ring', description: 'A timeless symbol of love, featuring a 1ct solitaire.', price: 320000, weight: 4.5, category: 'Rings', purity: '18K', image_url: 'web asset/products/diamond_solitaire.png' },
-            { name: 'Sapphire & Diamond Ring', description: 'Deep blue sapphire surrounded by a halo of diamonds.', price: 85000, weight: 5.2, category: 'Rings', purity: '18K', image_url: 'web asset/products/sapphire_ring.png' },
-            { name: 'Thick Gold Chain', description: 'Heavy weight gold chain statement piece.', price: 110000, weight: 22.0, category: 'Necklaces', purity: '22K', image_url: 'web asset/products/thick_gold_chain.png' },
-            { name: 'Rose Gold Pendant', description: 'Delicate rose gold pendant for modern elegance.', price: 18000, weight: 3.5, category: 'Pendants', purity: '18K', image_url: 'web asset/products/rose_gold_pendant.png' },
-            { name: 'Diamond Tennis Bracelet', description: 'A continuous line of brilliant-cut diamonds.', price: 145000, weight: 10.0, category: 'Bracelets', purity: '18K', image_url: 'web asset/products/diamond_tennis_bracelet.png' },
-            { name: 'Antique Gold Chandbalis', description: 'Traditional earrings with intricate gold filigree work.', price: 55000, weight: 15.0, category: 'Earrings', purity: '22K', image_url: 'web asset/products/gold_chandbalis.png' }
+            { name: 'Imperial Polki Necklace', description: 'A masterpiece of unfinished diamonds set in 22K gold.', price: 250000, weight: 45.0, category: 'Necklaces', purity: '22K', image_url: '/web_assets/products/temple_jewelry.png' },
+            { name: 'Gold Chain Collection', description: 'Exquisite handcrafted gold chains showing traditional artistry.', price: 45000, weight: 8.5, category: 'Necklaces', purity: '22K', image_url: '/web_assets/products/gold_chain.png' },
+            { name: 'Royal Kundan Choker', description: 'Regal choker necklace capable of elevating any bridal look.', price: 180000, weight: 32.0, category: 'Necklaces', purity: '22K', image_url: '/web_assets/products/crystal_choker.png' },
+            { name: 'Sleek Gold Bangles', description: 'Set of 4 daily wear gold bangles.', price: 68000, weight: 12.5, category: 'Bangles', purity: '22K', image_url: '/web_assets/products/gold_bangle.png' },
+            { name: 'Diamond Solitaire Ring', description: 'A timeless symbol of love, featuring a 1ct solitaire.', price: 320000, weight: 4.5, category: 'Rings', purity: '18K', image_url: '/web_assets/products/diamond_solitaire.png' },
+            { name: 'Sapphire & Diamond Ring', description: 'Deep blue sapphire surrounded by a halo of diamonds.', price: 85000, weight: 5.2, category: 'Rings', purity: '18K', image_url: '/web_assets/products/sapphire_ring.png' },
+            { name: 'Thick Gold Chain', description: 'Heavy weight gold chain statement piece.', price: 110000, weight: 22.0, category: 'Necklaces', purity: '22K', image_url: '/web_assets/products/thick_gold_chain.png' },
+            { name: 'Rose Gold Pendant', description: 'Delicate rose gold pendant for modern elegance.', price: 18000, weight: 3.5, category: 'Pendants', purity: '18K', image_url: '/web_assets/products/rose_gold_pendant.png' },
+            { name: 'Diamond Tennis Bracelet', description: 'A continuous line of brilliant-cut diamonds.', price: 145000, weight: 10.0, category: 'Bracelets', purity: '18K', image_url: '/web_assets/products/diamond_tennis_bracelet.png' },
+            { name: 'Antique Gold Chandbalis', description: 'Traditional earrings with intricate gold filigree work.', price: 55000, weight: 15.0, category: 'Earrings', purity: '22K', image_url: '/web_assets/products/gold_chandbalis.png' }
         ];
 
         // Clear existing products for this vendor
@@ -488,10 +529,8 @@ app.post('/api/auth/check-mobile', async (req, res) => {
     try {
         const result = await pool.query("SELECT * FROM users WHERE mobile_number = $1", [mobileNumber]);
         if (result.rows.length > 0) {
-            const user = result.rows[0];
-            // Profile is complete when first_name is set
-            const isProfileComplete = !!(user.first_name && user.first_name.trim().length > 0);
-            return res.json({ exists: true, user: { ...user, isProfileComplete } });
+            // User exists
+            return res.json({ exists: true, user: result.rows[0] });
         } else {
             // User does not exist
             return res.json({ exists: false });
@@ -1512,13 +1551,13 @@ app.post('/api/payment/cashfree/session', async (req, res) => {
             },
             "order_meta": {
                 "return_url": "https://swarnasetu.com/payment/return?order_id={order_id}",
-                "notify_url": "https://swarnasetu.com/api/payment/cashfree/webhook"
+                "notify_url": "https://swarna-setu-api.onrender.com/api/payment/cashfree/webhook"
             }
         };
 
         const response = await Cashfree.PGCreateOrder("2023-08-01", request);
 
-        console.log("Cashfree session created:", response.data);
+        console.log("Cashfree session created:", response.data?.order_id);
         res.status(200).json(response.data);
     } catch (error) {
         console.error('Error creating Cashfree session:', error.response?.data || error.message);
