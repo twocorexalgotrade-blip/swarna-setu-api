@@ -1531,6 +1531,7 @@ app.delete('/api/bag/:itemId', async (req, res) => {
 // --- CASHFREE PAYMENT ROUTES ---
 app.post('/api/payment/cashfree/session', async (req, res) => {
     try {
+        console.log("DEBUG: Using Cashfree App ID:", Cashfree.XClientId ? Cashfree.XClientId.substring(0, 5) + '...' : 'MISSING');
         const { order_amount, customer_phone, customer_id, customer_name, customer_email } = req.body;
 
         if (!order_amount || !customer_phone || !customer_id) {
