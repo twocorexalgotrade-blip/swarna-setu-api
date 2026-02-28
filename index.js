@@ -278,7 +278,7 @@ app.use('/jayshree', express.static(path.join(__dirname, 'public/jayshree'), {
     }
 }));
 // SPA Fallback for Jayshree app
-app.get('/jayshree/*', (req, res) => {
+app.get(/^\/jayshree\/.*/, (req, res) => {
     res.sendFile(path.join(__dirname, 'public/jayshree/index.html'));
 });
 
