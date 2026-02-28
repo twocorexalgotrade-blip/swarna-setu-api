@@ -14,7 +14,10 @@ const { Cashfree } = require('cashfree-pg'); // Cashfree Payment SDK
 // Initialize Cashfree
 Cashfree.XClientId = process.env.CASHFREE_APP_ID || '';
 Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY || '';
-Cashfree.XEnvironment = Cashfree.Environment.SANDBOX; // Change to PRODUCTION for live
+// Dynamically set environment based on whether the APP_ID starts with 'TEST'
+Cashfree.XEnvironment = (Cashfree.XClientId.startsWith('TEST'))
+    ? Cashfree.Environment.SANDBOX
+    : Cashfree.Environment.PRODUCTION;
 
 // Initialize OpenAI (optional - only if API key is provided)
 let openai = null;
