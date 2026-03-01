@@ -603,6 +603,21 @@ app.post('/api/user/complete-profile', async (req, res) => {
     }
 });
 
+// --- USER ACCOUNT DELETION ---
+app.delete('/api/user/:phone', async (req, res) => {
+    const { phone } = req.params;
+    try {
+        const result = await pool.query('DELETE FROM users WHERE mobile_number = $1 RETURNING id', [phone]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        res.json({ success: true, message: "User data deleted successfully" });
+    } catch (err) {
+        console.error("Error deleting user:", err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // --- VENDOR AUTH ROUTES ---
 app.post('/api/auth/vendor/register', async (req, res) => {
     const { email, password } = req.body;
