@@ -1,4 +1,4 @@
-:HL["/jayshree/_next/static/chunks/eb4a66f964b60b52.css","style"]
+:HL["/jayshree/_next/static/chunks/ce0e32f137db73eb.css","style"]
 :HL["https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=Montserrat:wght@200;300;400;500;600;700&display=swap","style"]
 :HL["/jayshree/videos/v2.mp4","video",{"type":"video/mp4"}]
 :HL["/jayshree/videos/v3.mp4","video",{"type":"video/mp4"}]
@@ -6,4 +6,4 @@
 :HL["/jayshree/videos/v5.mp4","video",{"type":"video/mp4"}]
 :HL["/jayshree/videos/v6.mp4","video",{"type":"video/mp4"}]
 :HL["/jayshree/videos/hero-jewelry.mp4","video",{"type":"video/mp4"}]
-0:{"buildId":"48e6hBzi2tTFhXY6-aHp4","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
+0:{"buildId":"yJBMJ_YttpZeAv7sV4C5j","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
