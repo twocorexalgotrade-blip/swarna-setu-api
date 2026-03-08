@@ -268,8 +268,6 @@ app.use(express.static(path.join(__dirname, '..'), {
         }
     }
 }));
-app.use(express.static('public')); // Serve static files from 'public' directory
-
 // Serve Jayshree Vite site from public/jayshree
 app.use('/jayshree', express.static(path.join(__dirname, 'public/jayshree'), {
     etag: true,
@@ -293,6 +291,9 @@ app.get(/^\/jayshree\/.*/, (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.sendFile(path.join(__dirname, 'public/jayshree/index.html'));
 });
+
+// IMPORTANT: generic public folder served last so it doesn't override /jayshree rules
+app.use(express.static('public')); // Serve static files from 'public' directory
 
 // --- DATABASE MIGRATIONS ---
 const performMigrations = async () => {
