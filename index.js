@@ -275,6 +275,16 @@ app.use('/jayshree', express.static(path.join(__dirname, 'public/jayshree'), {
         if (filePath.endsWith('.html')) {
             // Never cache HTML so updates propagate immediately
             res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            // Add HTTP Link headers so browser preloads videos globally
+            const videoPreloads = [
+                '/jayshree/videos/v2.mp4',
+                '/jayshree/videos/v3.mp4',
+                '/jayshree/videos/v4.mp4',
+                '/jayshree/videos/v5.mp4',
+                '/jayshree/videos/v6.mp4',
+                '/jayshree/videos/hero-jewelry.mp4',
+            ].map(v => `<${v}>; rel=preload; as=video; type="video/mp4"`).join(', ');
+            res.setHeader('Link', videoPreloads);
         } else if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg') || filePath.endsWith('.glb')) {
             res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
         } else if (filePath.includes('/_next/static/')) {
