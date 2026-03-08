@@ -286,9 +286,23 @@ app.use('/jayshree', express.static(path.join(__dirname, 'public/jayshree'), {
         }
     }
 }));
-// SPA Fallback for Jayshree app
-app.get(/^\/jayshree\/.*/, (req, res) => {
+// SPA Fallback for Jayshree app — also sends HTTP Link preload headers so browser fetches videos immediately
+app.get(/^\/jayshree(\/.*)?$/, (req, res) => {
+    // Skip if this is a static asset request (handled by express.static above)
+    if (req.path.match(/\.(mp4|png|jpg|jpeg|gif|svg|ico|css|js|woff|woff2|ttf|glb|webp)$/i)) {
+        return res.status(404).send('Not found');
+    }
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    // HTTP preload hints — browser starts fetching videos the moment it receives the response headers
+    const videoPreloads = [
+        '/jayshree/videos/v2.mp4',
+        '/jayshree/videos/v3.mp4',
+        '/jayshree/videos/v4.mp4',
+        '/jayshree/videos/v5.mp4',
+        '/jayshree/videos/v6.mp4',
+        '/jayshree/videos/hero-jewelry.mp4',
+    ].map(v => `<${v}>; rel=preload; as=video; type="video/mp4"`).join(', ');
+    res.setHeader('Link', videoPreloads);
     res.sendFile(path.join(__dirname, 'public/jayshree/index.html'));
 });
 
