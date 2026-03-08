@@ -272,11 +272,19 @@ app.use(express.static('public')); // Serve static files from 'public' directory
 
 // Serve Jayshree Vite site from public/jayshree
 app.use('/jayshree', express.static(path.join(__dirname, 'public/jayshree'), {
-    maxAge: '1d',
     etag: true,
     setHeaders: (res, filePath) => {
-        if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg') || filePath.endsWith('.glb')) {
+        if (filePath.endsWith('.html')) {
+            // Never cache HTML so updates propagate immediately
+            res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.endsWith('.mp4') || filePath.endsWith('.png') || filePath.endsWith('.jpg') || filePath.endsWith('.glb')) {
             res.setHeader('Cache-Control', 'public, max-age=604800'); // 7 days
+        } else if (filePath.includes('/_next/static/')) {
+            // Next.js hashed assets can be cached forever
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+            // Default short cache for unhashed assets like CSS or JS
+            res.setHeader('Cache-Control', 'public, max-age=3600');
         }
     }
 }));
