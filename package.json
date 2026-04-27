@@ -1,0 +1,34 @@
+{
+  "name": "swarnasetu_server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "seed:catalog": "node seed_catalog.js",
+    "cleanup:shops": "node cleanup_broken_shops.js",
+    "extract:drive": "node extract_drive_images.js",
+    "download:drive": "node download_drive_images.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.2",
+    "cashfree-pg": "^4.0.7",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.1.0",
+    "express-list-endpoints": "^7.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.1.1",
+    "openai": "^6.22.0",
+    "pg": "^8.16.3",
+    "socket.io": "^4.8.3",
+    "uuid": "^13.0.0",
+    "xlsx": "^0.18.5"
+  }
+}

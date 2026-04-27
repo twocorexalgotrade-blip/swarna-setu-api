@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Metal Rates</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 480px;
+            /* Mobile width */
+            margin: 0 auto;
+            background-color: #fff;
+            min-height: 100vh;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            /* overflow: hidden; Removed to prevent clipping */
+            padding-bottom: 20px;
+        }
+
+        .header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #0d2b4a;
+            /* Dark blue from screenshot */
+        }
+
+        .live-banner {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 20px;
+            border-radius: 8px;
+        }
+
+        .market-status {
+            display: flex;
+            justify-content: space-between;
+            background-color: #fff;
+            margin: 0 20px 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 12px;
+        }
+
+        .status-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .status-item:first-child {
+            border-right: 1px solid #eee;
+        }
+
+        .status-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .status-price {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0d2b4a;
+        }
+
+        .live-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background-color: #4caf50;
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .live-text {
+            color: #4caf50;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .rate-list {
+            padding: 0 20px;
+        }
+
+        .rate-card {
+            background-color: #fff;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+
+        .metal-info h3 {
+            margin: 0 0 4px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #111;
+        }
+
+        .metal-info p {
+            margin: 0;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .price-info {
+            text-align: right;
+        }
+
+        .price-info .amount {
+            display: block;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0d2b4a;
+        }
+
+        .price-info .unit {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .tabs {
+            display: flex;
+            padding: 0 20px;
+            margin-bottom: 15px;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            border: 1px solid #eee;
+            border-radius: 20px;
+            background: #fff;
+            font-size: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background-color: #0d2b4a;
+            color: #fff;
+            border-color: #0d2b4a;
+        }
+
+        .chart-container {
+            padding: 20px;
+            background: #fff;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+
+        .history-section {
+            margin: 20px 0;
+            padding: 0 20px;
+            overflow-x: auto;
+        }
+
+        .history-title {
+            background: #a0522d;
+            /* Brown header from screenshot */
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 8px 8px 0 0;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            text-align: center;
+            background: white;
+        }
+
+        .history-table th,
+        .history-table td {
+            border: 1px solid #eee;
+            padding: 6px 2px;
+        }
+
+        .history-table th {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .disclaimer {
+            font-size: 10px;
+            color: #666;
+            padding: 10px 20px;
+            text-align: center;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 id="page-title">Gold Rates (Live)</h1>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showMetal('gold')">Gold</button>
+            <button class="tab-btn" onclick="showMetal('silver')">Silver</button>
+            <button class="tab-btn" onclick="showMetal('platinum')">Platinum</button>
+        </div>
+
+        <div class="live-banner">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" class="h-5 w-5">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round"></path>
+            </svg>
+            Live Market Rates
+        </div>
+
+        <div class="market-status" id="market-status">
+            <div class="status-item">
+                <div class="status-label">AM (Open)</div>
+                <div class="status-price" id="am-rate">₹0</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">PM (Live)</div>
+                <div class="status-price" id="pm-rate">₹0</div>
+                <div class="live-text"><span class="live-dot"></span>Live</div>
+            </div>
+        </div>
+
+        <div class="rate-list" id="rate-list">
+            <!-- Rate cards will be injected here -->
+        </div>
+
+        <div class="chart-container">
+            <canvas id="priceHistoryChart"></canvas>
+        </div>
+
+        <div class="history-section">
+            <div class="history-title">Previous Dates Rate</div>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Date</th>
+                        <th colspan="5">Gold 999 (per 10g)</th>
+                        <th>Silver 999</th>
+                        <th>Platinum</th>
+                    </tr>
+                    <tr>
+                        <th>999</th>
+                        <th>995</th>
+                        <th>916</th>
+                        <th>750</th>
+                        <th>585</th>
+                        <th>(1kg)</th>
+                        <th>(10g)</th>
+                    </tr>
+                </thead>
+                <tbody id="history-body">
+                    <tr>
+                        <td colspan="8">Loading historical rates...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="disclaimer">*Gold rates per 10gm & Silver rate per 1kg. The above rates are without 3% GST and Making
+            Charges.</p>
+    </div>
+
+    <script>
+        let currentMetal = 'gold';
+        let ratesData = {};
+
+        async function fetchRates() {
+            try {
+                const response = await fetch('/api/metal-rates');
+                const data = await response.json();
+                ratesData = data;
+                renderRates();
+            } catch (err) {
+                console.error("Error fetching rates", err);
+            }
+        }
+
+        function showMetal(metal) {
+            currentMetal = metal;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.innerText.toLowerCase().replace(' ', '_') === metal) btn.classList.add('active');
+            });
+            renderRates();
+        }
+
+        function renderRates() {
+            const list = document.getElementById('rate-list');
+            const amEl = document.getElementById('am-rate');
+            const pmEl = document.getElementById('pm-rate');
+            const titleEl = document.getElementById('page-title');
+
+            list.innerHTML = '';
+
+            const metalData = ratesData[currentMetal];
+            if (!metalData) return;
+
+            // Update Header
+            titleEl.innerText = `${metalData.metal} Rates (Live)`;
+
+            // Update Top Block (AM/PM)
+            if (metalData.am_rate && metalData.pm_rate) {
+                amEl.innerText = `₹${metalData.am_rate}`;
+                pmEl.innerText = `₹${metalData.pm_rate}`;
+                document.getElementById('market-status').style.display = 'flex';
+            } else {
+                pmEl.innerText = `₹${metalData.rate_per_gram}`;
+                amEl.innerText = '-';
+            }
+
+            // Generate Rate Cards based on metal type
+            const cards = [];
+
+            if (currentMetal === 'gold') {
+                // Display per 10g to match history table and common Indian practice
+                const ratePer10g = metalData.rate_per_gram * 10;
+
+                cards.push(createCard('24 Kt (999)', 'Pure Gold', ratePer10g, 'per 10g'));
+
+                // 995 Purity: Calculated proportional to 999 to match IBJA reference
+                cards.push(createCard('24 Kt (995)', 'Standard Gold', Math.round(ratePer10g * (995 / 999)), 'per 10g'));
+
+                // Other Karats: Calculated using standard purity percentage (IBJA convention)
+                cards.push(createCard('22 Kt (916)', 'Standard Gold', Math.round(ratePer10g * 0.916), 'per 10g'));
+                cards.push(createCard('18 Kt (750)', 'Rose/White Gold', Math.round(ratePer10g * 0.750), 'per 10g'));
+                cards.push(createCard('14 Kt (585)', 'Lightweight Gold', Math.round(ratePer10g * 0.585), 'per 10g'));
+                cards.push(createCard('9 Kt (375)', 'Entry Level', Math.round(ratePer10g * 0.375), 'per 10g'));
+            } else if (currentMetal === 'silver') {
+                const ratePer1Kg = metalData.rate_per_gram * 1000;
+
+                cards.push(createCard('Silver (999)', 'Fine Silver', ratePer1Kg, 'per 1kg'));
+                cards.push(createCard('Silver (925)', 'Sterling Silver', Math.round(ratePer1Kg * 0.925), 'per 1kg'));
+            } else if (currentMetal === 'platinum') {
+                const ratePer10g = metalData.rate_per_gram * 10;
+
+                // Platinum 999 (Reference Grade)
+                cards.push(createCard('Platinum (999)', 'Fine Platinum', ratePer10g, 'per 10g'));
+
+                // Platinum 950 (Jewellery Standard)
+                cards.push(createCard('Platinum (950)', 'Standard', Math.round(ratePer10g * 0.95), 'per 10g'));
+            }
+
+            cards.forEach(card => list.appendChild(card));
+        }
+
+        function createCard(title, subtitle, price, unit = 'per gram') {
+            const div = document.createElement('div');
+            div.className = 'rate-card';
+            div.innerHTML = `
+                <div class="metal-info">
+                    <h3>${title}</h3>
+                    <p>${subtitle}</p>
+                </div>
+                <div class="price-info">
+                    <span class="amount">₹${price}</span>
+                    <span class="unit">${unit}</span>
+                </div>
+            `;
+            return div;
+        }
+
+        // History Fetcher
+        async function fetchHistory() {
+            try {
+                const response = await fetch('/api/metal-rates/history');
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    const tbody = document.getElementById('history-body');
+                    tbody.innerHTML = '';
+
+                    result.data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${row.date}</td>
+                            <td>${row.gold_999}</td>
+                            <td>${row.gold_995}</td>
+                            <td>${row.gold_916}</td>
+                            <td>${row.gold_750}</td>
+                            <td>${row.gold_585}</td>
+                            <td>${row.silver_999}</td>
+                            <td>${row.platinum_999}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    // Render Chart
+                    renderChart(result.data);
+                } else {
+                    document.getElementById('history-body').innerHTML = '<tr><td colspan="8">No history data available.</td></tr>';
+                }
+            } catch (error) {
+                console.error('Error fetching history:', error);
+                document.getElementById('history-body').innerHTML = '<tr><td colspan="8">Failed to load history.</td></tr>';
+            }
+        }
+
+        let priceChart;
+
+        function renderChart(historyData) {
+            const ctx = document.getElementById('priceHistoryChart').getContext('2d');
+
+            // Sort data by date ascending for the graph
+            // Dates are DD/MM/YYYY
+            const sortedData = [...historyData].sort((a, b) => {
+                const dateA = a.date.split('/').reverse().join('-');
+                const dateB = b.date.split('/').reverse().join('-');
+                return new Date(dateA) - new Date(dateB);
+            });
+
+            const labels = sortedData.map(item => item.date);
+            const goldData = sortedData.map(item => item.gold_999);
+            const silverData = sortedData.map(item => item.silver_999);
+            const platinumData = sortedData.map(item => item.platinum_999);
+
+            if (priceChart) priceChart.destroy();
+
+            priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Gold 999 (per 10g)',
+                            data: goldData,
+                            borderColor: '#daa520', // Goldenrod
+                            backgroundColor: 'rgba(218, 165, 32, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: 'Silver 999 (per 1kg)',
+                            data: silverData,
+                            borderColor: '#708090', // Slate Grey
+                            backgroundColor: 'rgba(112, 128, 144, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: 'Platinum (per 10g)',
+                            data: platinumData,
+                            borderColor: '#008b8b', // Dark Cyan
+                            backgroundColor: 'rgba(0, 139, 139, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Metal Price Trends (Last 7 Days)'
+                        },
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    return context.dataset.label + ': ₹ ' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: '#f0f0f0'
+                            },
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1000) return '₹' + (value / 1000).toFixed(0) + 'k';
+                                    return '₹' + value;
+                                }
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Init
+        fetchRates();
+        fetchHistory(); // Load history
+        // Refresh every 30s
+        setInterval(fetchRates, 30000);
+    </script>
+</body>
+
+</html>

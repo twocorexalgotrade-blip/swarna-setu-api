@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swarna Setu Admin</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+        }
+
+        h1 {
+            color: #1B2B44;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #1B2B44;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        button {
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #c9302c;
+        }
+
+        .refresh-btn {
+            background-color: #28a745;
+            margin-bottom: 10px;
+        }
+
+        .refresh-btn:hover {
+            background-color: #218838;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Swarna Setu Admin Portal</h1>
+        <button class="refresh-btn" onclick="fetchUsers()">Refresh User List</button>
+        <div id="userTableContainer">
+            <table id="userTable">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Full Name</th>
+                        <th>Mobile / Email</th>
+                        <th>Gender</th>
+                        <th>DOB</th>
+                        <th>Created At</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Rows will be populated here -->
+                </tbody>
+            </table>
+            <p id="loading" class="loading">Loading users...</p>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = '/api/admin/users';
+
+        async function fetchUsers() {
+            const loading = document.getElementById('loading');
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error('Failed to fetch users');
+                const users = await response.json();
+
+                users.forEach(user => {
+                    const tr = document.createElement('tr');
+                    // Construct full name if separate fields exist, else fallback to 'name'
+                    let displayName = user.name || '-';
+                    if (user.first_name || user.last_name) {
+                        displayName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                    }
+
+                    tr.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.title || '-'}</td>
+                    <td>${displayName}</td>
+                    <td>${user.mobile_number || user.email || '-'}</td>
+                    <td>${user.gender || '-'}</td>
+                    <td>${user.dob || '-'}</td>
+                    <td>${new Date(user.created_at).toLocaleString()}</td>
+                    <td>
+                        <button onclick="deleteUser(${user.id})">Delete</button>
+                    </td>
+                `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error(error);
+                alert('Error loading users. Check console.');
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+
+            try {
+                const response = await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    alert('User deleted successfully');
+                    fetchUsers();
+                } else {
+                    alert('Failed to delete user');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Error deleting user');
+            }
+        }
+
+        // Initial Load
+        fetchUsers();
+    </script>
+
+</body>
+
+</html>
